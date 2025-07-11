@@ -49,7 +49,7 @@ describe("POST /v1/users", () => {
       email: "missingfields@example.com"
     });
     expect(res.statusCode).toBe(400);
-    expect(res.body).toHaveProperty("error");
+    expect(res.body).toStrictEqual({ message: "Missing required fields" });
   });
 
   it("Fails if email is duplicate", async () => {
@@ -66,7 +66,7 @@ describe("POST /v1/users", () => {
       postcode: "DUP 123"
     });
     expect(res.statusCode).toBe(400);
-    expect(res.body).toHaveProperty("error");
+    expect(res.body).toStrictEqual({ message: "A user with this email already exists." });
   });
 
   it("Fails with invalid email format", async () => {
