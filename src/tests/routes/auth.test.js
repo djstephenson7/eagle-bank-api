@@ -1,16 +1,30 @@
 /* eslint-disable no-undef */
-import { prismaMock } from "../../context.js";
+import { PrismaClient } from "@prisma/client";
+import { app } from "../../app.js";
 
-jest.unstable_mockModule("../startup/connectToDatabase.js", () => ({
-  prisma: prismaMock,
-  connectToDatabase: jest.fn()
-}));
+let request, server, prisma;
 
-let request, app;
+jest.mock("@prisma/client", () => {
+  const user = { create: jest.fn(), findUnique: jest.fn() };
+  const mockPrisma = {
+    user,
+    $extends: jest.fn().mockReturnThis(), // allow chaining
+    $connect: jest.fn().mockResolvedValue(undefined),
+    $disconnect: jest.fn().mockResolvedValue(undefined)
+  };
+  return {
+    PrismaClient: jest.fn(() => mockPrisma)
+  };
+});
+
 beforeEach(async () => {
-  // Dynamically import after the mock is set up
+  prisma = new PrismaClient();
   request = (await import("supertest")).default;
-  app = (await import("../app.js")).default;
+  server = app.listen(0);
+});
+
+afterEach(() => {
+  if (server) server.close();
 });
 
 const user = {
@@ -27,14 +41,6 @@ const user = {
 };
 
 describe("POST /v1/auth", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  afterEach(async () => {
-    if (prismaMock.$disconnect) await prismaMock.$disconnect();
-  });
-
   it("Fails if email is missing", async () => {
     const res = await request(app).post("/v1/auth").send({});
 
@@ -43,7 +49,7 @@ describe("POST /v1/auth", () => {
   });
 
   it("Fails if user is not found", async () => {
-    prismaMock.user.findUnique.mockResolvedValue(null);
+    prisma.user.findUnique.mockResolvedValue(null);
     const res = await request(app).post("/v1/auth").send({ email: "notfound@example.com" });
 
     expect(res.statusCode).toBe(401);
@@ -51,7 +57,7 @@ describe("POST /v1/auth", () => {
   });
 
   it("Returns dummy token for valid user", async () => {
-    prismaMock.user.findUnique.mockResolvedValue(user);
+    prisma.user.findUnique.mockResolvedValue(user);
     const res = await request(app).post("/v1/auth").send({ email: user.email });
 
     expect(res.statusCode).toBe(200);
