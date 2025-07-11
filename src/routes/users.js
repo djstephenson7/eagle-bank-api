@@ -13,8 +13,8 @@ router.post("/", async (req, res) => {
       email,
       phoneNumber,
       addressLine1,
-      addressLine2,
-      addressLine3,
+      addressLine2 = "",
+      addressLine3 = "",
       town,
       county,
       postcode
@@ -26,7 +26,6 @@ router.post("/", async (req, res) => {
 
     // Check for duplicate email
     const existingUser = await prisma.user.findUnique({ where: { email } });
-
     if (existingUser) {
       return res.status(400).json({ message: "A user with this email already exists." });
     }
@@ -38,14 +37,26 @@ router.post("/", async (req, res) => {
         email,
         phoneNumber,
         addressLine1,
-        addressLine2: addressLine2 || "",
-        addressLine3: addressLine3 || "",
+        addressLine2,
+        addressLine3,
         town,
         county,
         postcode
       }
     });
-    return res.status(201).json(user);
+    // Respond with all user fields as per schema
+    return res.status(201).json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      addressLine1: user.addressLine1,
+      addressLine2: user.addressLine2,
+      addressLine3: user.addressLine3,
+      town: user.town,
+      county: user.county,
+      postcode: user.postcode
+    });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "An unexpected error occurred" });

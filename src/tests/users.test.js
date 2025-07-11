@@ -1,16 +1,31 @@
 /* eslint-disable no-undef */
-import { prismaMock } from "../../context.js";
 
-jest.unstable_mockModule("../startup/connectToDatabase.js", () => ({
-  prisma: prismaMock,
-  connectToDatabase: jest.fn()
-}));
+import { app } from "../app.js";
+import { PrismaClient } from "@prisma/client";
 
-let request, app;
+let request, server, prisma;
+
+jest.mock("@prisma/client", () => {
+  const user = { create: jest.fn(), findUnique: jest.fn() };
+  const mockPrisma = {
+    user,
+    $extends: jest.fn().mockReturnThis(), // allow chaining
+    $connect: jest.fn().mockResolvedValue(undefined),
+    $disconnect: jest.fn().mockResolvedValue(undefined)
+  };
+  return {
+    PrismaClient: jest.fn(() => mockPrisma)
+  };
+});
+
 beforeEach(async () => {
-  // Dynamically import after the mock is set up
+  prisma = new PrismaClient();
   request = (await import("supertest")).default;
-  app = (await import("../app.js")).default;
+  server = app.listen(0);
+});
+
+afterEach(() => {
+  if (server) server.close();
 });
 
 const user = {
@@ -26,17 +41,9 @@ const user = {
 };
 
 describe("POST /v1/users", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  afterEach(async () => {
-    if (prismaMock.$disconnect) await prismaMock.$disconnect();
-  });
-
   it("Creates a user", async () => {
-    prismaMock.user.create.mockResolvedValue({ ...user, id: 1 });
-    // prismaMock.user.findUnique.mockResolvedValue(null);
+    prisma.user.findUnique.mockResolvedValueOnce(null);
+    prisma.user.create.mockResolvedValueOnce({ ...user, id: "usr-123" });
 
     const res = await request(app).post("/v1/users").send(user);
     expect(res.statusCode).toBe(201);
@@ -53,7 +60,7 @@ describe("POST /v1/users", () => {
   });
 
   it("Fails if email is duplicate", async () => {
-    prismaMock.user.findUnique.mockResolvedValue({ ...user, email: "dup@example.com" });
+    prisma.user.findUnique.mockResolvedValueOnce({ ...user, email: "dup@example.com" });
     const res = await request(app).post("/v1/users").send({
       name: "Dup User",
       email: "dup@example.com",
@@ -70,8 +77,8 @@ describe("POST /v1/users", () => {
   });
 
   it("Fails with invalid email format", async () => {
-    prismaMock.user.findUnique.mockResolvedValue(null);
-    prismaMock.user.create.mockResolvedValue({ ...user, email: "notanemail", id: 2 });
+    prisma.user.findUnique.mockResolvedValueOnce(null);
+    prisma.user.create.mockResolvedValueOnce({ ...user, email: "notanemail", id: 2 });
     const res = await request(app).post("/v1/users").send({
       name: "Invalid Email",
       email: "notanemail",
