@@ -14,7 +14,7 @@ datasource db {
 }
 
 model User {
-  id          Int    @id @default(autoincrement())
+  id          String @id @map("id") // Managed manually, must follow usr-<alphanumeric>
   name        String
   email       String @unique
   phoneNumber String
@@ -26,34 +26,48 @@ model User {
   postcode     String
 
   accounts    Account[]
+  transactions Transaction[]
 }
 
-
 model Account {
-  id              Int           @id @default(autoincrement())
-  accountNumber   String
-  sortCode        String
-  name            String
-  accountType     String
-  balance         Int           // stored in smallest currency unit (e.g. pence)
-  currency        String
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id               Int      @id @default(autoincrement())
+  accountNumber    String   // pattern: ^01\d{6}$
+  sortCode         String   // pattern: ^\d{2}-\d{2}-\d{2}$
+  name             String
+  accountType      AccountType
+  balance          Int      // stored in smallest currency unit (e.g. pence), minimum: 0, maximum: 10000
+  currency         Currency
+  createdTimestamp DateTime @map("createdTimestamp") @default(now())
+  updatedTimestamp DateTime @map("updatedTimestamp") @updatedAt
 
-  userId          Int
-  user            User          @relation(fields: [userId], references: [id])
-  transactions    Transaction[]
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  transactions     Transaction[]
 }
 
 model Transaction {
-  id            Int       @id @default(autoincrement())
-  amount        Int       // stored in smallest currency unit (e.g. pence)
-  currency      String
-  type          String    // "deposit" | "withdrawal"
+  id            String   @id @map("id") // pattern: ^tan-[A-Za-z0-9]+$
+  amount        Int      // stored in smallest currency unit (e.g. pence), minimum: 0, maximum: 10000
+  currency      Currency
+  type          TransactionType
   reference     String
-
-  createdAt     DateTime  @default(now())
-
+  userId        String   // pattern: ^usr-[A-Za-z0-9]+$
+  createdTimestamp DateTime @map("createdTimestamp") @default(now())
+  // Relations
+  user          User     @relation(fields: [userId], references: [id])
   accountId     Int
-  account       Account   @relation(fields: [accountId], references: [id])
+  account       Account  @relation(fields: [accountId], references: [id])
+}
+
+enum Currency {
+  GBP
+}
+
+enum TransactionType {
+  deposit
+  withdrawal
+}
+
+enum AccountType {
+  personal
 }
