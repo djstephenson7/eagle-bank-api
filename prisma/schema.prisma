@@ -24,6 +24,8 @@ model User {
   town         String
   county       String
   postcode     String
+  createdTimestamp DateTime @map("createdTimestamp") @default(now())
+  updatedTimestamp DateTime @map("updatedTimestamp") @updatedAt
 
   accounts    Account[]
   transactions Transaction[]
