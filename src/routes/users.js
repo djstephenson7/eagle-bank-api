@@ -1,8 +1,7 @@
 import express from "express";
 import { prisma } from "../startup/connectToDatabase.js";
 import { requireAuth } from "../middleware/requireAuth.js";
-
-const USER_ID_REGEX = /^usr-[A-Za-z0-9]+$/;
+import { validateUserAccess } from "../middleware/validateUserAccess.js";
 
 const router = express.Router();
 
@@ -68,29 +67,14 @@ router.post("/", async (req, res) => {
   }
 });
 
-router.get("/:userId", [requireAuth], async (req, res) => {
+router.get("/:userId", [requireAuth, validateUserAccess], async (req, res) => {
   const { userId } = req.params;
-  const authenticatedUserId = req.headers.authorization?.replace("Bearer dummy-token-", "");
-
-  if (!authenticatedUserId) {
-    return res.status(401).json({ message: "Access token is missing or invalid" });
-  }
-
-  if (!USER_ID_REGEX.test(userId)) {
-    return res.status(400).json({ message: "Invalid user ID format. Expected usr-<alphanumeric>" });
-  }
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId }
-    });
+    const user = await prisma.user.findUnique({ where: { id: userId } });
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
-    }
-
-    if (userId !== authenticatedUserId) {
-      return res.status(403).json({ message: "Access to requested user is forbidden" });
     }
 
     res.status(200).json({
@@ -115,21 +99,8 @@ router.get("/:userId", [requireAuth], async (req, res) => {
   }
 });
 
-router.patch("/:userId", [requireAuth], async (req, res) => {
+router.patch("/:userId", [requireAuth, validateUserAccess], async (req, res) => {
   const { userId } = req.params;
-  const authenticatedUserId = req.headers.authorization?.replace("Bearer dummy-token-", "");
-
-  if (!authenticatedUserId) {
-    return res.status(401).json({ message: "Access token is missing or invalid" });
-  }
-
-  if (!/^usr-[A-Za-z0-9]+$/.test(userId)) {
-    return res.status(400).json({ message: "Invalid user ID format. Expected usr-<alphanumeric>" });
-  }
-
-  if (userId !== authenticatedUserId) {
-    return res.status(403).json({ message: "Access to requested user is forbidden" });
-  }
 
   const {
     name,
@@ -199,28 +170,13 @@ router.patch("/:userId", [requireAuth], async (req, res) => {
   }
 });
 
-router.delete("/:userId", [requireAuth], async (req, res) => {
+router.delete("/:userId", [requireAuth, validateUserAccess], async (req, res) => {
   const { userId } = req.params;
-  const authenticatedUserId = req.headers.authorization?.replace("Bearer dummy-token-", "");
-
-  if (!authenticatedUserId) {
-    return res.status(401).json({ message: "Access token is missing or invalid" });
-  }
-
-  if (!USER_ID_REGEX.test(userId)) {
-    return res.status(400).json({ message: "Invalid user ID format. Expected usr-<alphanumeric>" });
-  }
-
-  if (userId !== authenticatedUserId) {
-    return res.status(403).json({ message: "Access to requested user is forbidden" });
-  }
 
   try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: {
-        accounts: true
-      }
+      include: { accounts: true }
     });
 
     if (!user) {
@@ -233,9 +189,7 @@ router.delete("/:userId", [requireAuth], async (req, res) => {
       });
     }
 
-    await prisma.user.delete({
-      where: { id: userId }
-    });
+    await prisma.user.delete({ where: { id: userId } });
 
     return res.status(204).send();
   } catch (err) {
