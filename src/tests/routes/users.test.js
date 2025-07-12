@@ -6,7 +6,7 @@ import { PrismaClient } from "@prisma/client";
 let request, server, prisma;
 
 jest.mock("@prisma/client", () => {
-  const user = { create: jest.fn(), findUnique: jest.fn(), update: jest.fn() };
+  const user = { create: jest.fn(), findUnique: jest.fn(), update: jest.fn(), delete: jest.fn() };
   const mockPrisma = {
     user,
     $extends: jest.fn().mockReturnThis(), // allow chaining
@@ -418,6 +418,125 @@ describe("v1/users", () => {
       expect(body.address.line2).toBe(mockUser.addressLine2);
       expect(body.address.county).toBe(mockUser.county);
       expect(body.address.postcode).toBe(mockUser.postcode);
+    });
+  });
+
+  describe("DELETE /:userId", () => {
+    const userId = "usr-abc123";
+
+    it("Returns 401 if no authorization header is provided", async () => {
+      const { body, statusCode } = await request(app).delete(`/v1/users/${userId}`);
+
+      expect(statusCode).toBe(401);
+      expect(body).toEqual({ message: "Missing or invalid token" });
+    });
+
+    it("Returns 401 if authorization header is malformed", async () => {
+      const { body, statusCode } = await request(app)
+        .delete(`/v1/users/${userId}`)
+        .set("Authorization", "Invalid-Token");
+
+      expect(statusCode).toBe(401);
+      expect(body).toEqual({ message: "Missing or invalid token" });
+    });
+
+    it("Returns 400 if userId format is invalid", async () => {
+      const { body, statusCode } = await request(app)
+        .delete("/v1/users/invalid-id")
+        .set("Authorization", "Bearer dummy-token-usr-abc123");
+
+      expect(statusCode).toBe(400);
+      expect(body).toEqual({ message: "Invalid user ID format. Expected usr-<alphanumeric>" });
+    });
+
+    it("Returns 403 if userId does not match authenticated user", async () => {
+      const { body, statusCode } = await request(app)
+        .delete(`/v1/users/${userId}`)
+        .set("Authorization", "Bearer dummy-token-usr-otheruser");
+
+      expect(statusCode).toBe(403);
+      expect(body).toEqual({ message: "Access to requested user is forbidden" });
+    });
+
+    it("Returns 404 if user is not found", async () => {
+      prisma.user.findUnique.mockResolvedValueOnce(null);
+
+      const { body, statusCode } = await request(app)
+        .delete(`/v1/users/${userId}`)
+        .set("Authorization", `Bearer dummy-token-${userId}`);
+
+      expect(statusCode).toBe(404);
+      expect(body).toEqual({ message: "User was not found" });
+    });
+
+    it("Returns 409 if user has associated accounts", async () => {
+      const userWithAccounts = {
+        ...mockUser,
+        accounts: [
+          {
+            id: 1,
+            accountNumber: "01123456",
+            sortCode: "12-34-56",
+            name: "Main Account",
+            accountType: "personal",
+            balance: 1000,
+            currency: "GBP"
+          }
+        ]
+      };
+      prisma.user.findUnique.mockResolvedValueOnce(userWithAccounts);
+
+      const { body, statusCode } = await request(app)
+        .delete(`/v1/users/${userId}`)
+        .set("Authorization", `Bearer dummy-token-${userId}`);
+
+      expect(statusCode).toBe(409);
+      expect(body).toEqual({
+        message: "A user cannot be deleted when they are associated with a bank account"
+      });
+    });
+
+    it("Deletes user successfully when no accounts exist", async () => {
+      const userWithoutAccounts = { ...mockUser, accounts: [] };
+      prisma.user.findUnique.mockResolvedValueOnce(userWithoutAccounts);
+      prisma.user.delete.mockResolvedValueOnce(mockUser);
+
+      const { statusCode } = await request(app)
+        .delete(`/v1/users/${userId}`)
+        .set("Authorization", `Bearer dummy-token-${userId}`);
+
+      expect(statusCode).toBe(204);
+      expect(prisma.user.delete).toHaveBeenCalledWith({
+        where: { id: userId }
+      });
+    });
+
+    it("Returns 500 if Prisma throws an error during findUnique", async () => {
+      prisma.user.findUnique.mockImplementationOnce(() => {
+        throw new Error("Database connection error");
+      });
+
+      const { body, statusCode } = await request(app)
+        .delete(`/v1/users/${userId}`)
+        .set("Authorization", `Bearer dummy-token-${userId}`);
+
+      expect(statusCode).toBe(500);
+      expect(body).toEqual({ message: "An unexpected error occurred" });
+    });
+
+    it("Returns 500 if Prisma throws an error during delete", async () => {
+      const userWithoutAccounts = { ...mockUser, accounts: [] };
+      prisma.user.findUnique.mockResolvedValueOnce(userWithoutAccounts);
+      prisma.user.delete.mockImplementationOnce(() => {
+        throw new Error("Delete operation failed");
+      });
+
+      const { body, statusCode } = await request(app)
+        .delete(`/v1/users/${userId}`)
+        .set("Authorization", `Bearer dummy-token-${userId}`);
+
+      expect(statusCode).toBe(500);
+      expect(body).toEqual({ message: "An unexpected error occurred" });
     });
   });
 });
