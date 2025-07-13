@@ -2,26 +2,28 @@ import express from "express";
 import { prisma } from "../startup/connectToDatabase.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { validateUserAccess } from "../middleware/validateUserAccess.js";
+import {
+  validateSchema,
+  createUserSchema,
+  updateUserSchema
+} from "../middleware/validateUserSchemas.js";
+import crypto from "crypto";
 
 const router = express.Router();
 
-router.post("/", async (req, res) => {
+router.post("/", [validateSchema(createUserSchema)], async (req, res) => {
   try {
     const {
       name,
       email,
       phoneNumber,
       addressLine1,
-      addressLine2 = "",
-      addressLine3 = "",
+      addressLine2,
+      addressLine3,
       town,
       county,
       postcode
     } = req.body;
-
-    if (!name || !email || !phoneNumber || !addressLine1 || !town || !county || !postcode) {
-      return res.status(400).json({ message: "Missing required fields" });
-    }
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -35,8 +37,8 @@ router.post("/", async (req, res) => {
         email,
         phoneNumber,
         addressLine1,
-        addressLine2,
-        addressLine3,
+        addressLine2: addressLine2 || "",
+        addressLine3: addressLine3 || "",
         town,
         county,
         postcode,
@@ -54,8 +56,8 @@ router.post("/", async (req, res) => {
       updatedTimestamp: user.updatedTimestamp,
       address: {
         line1: user.addressLine1,
-        line2: user.addressline2,
-        line3: user.addressline3,
+        line2: user.addressLine2,
+        line3: user.addressLine3,
         town: user.town,
         county: user.county,
         postcode: user.postcode
@@ -86,8 +88,8 @@ router.get("/:userId", [requireAuth, validateUserAccess], async (req, res) => {
       updatedTimestamp: user.updatedTimestamp,
       address: {
         line1: user.addressLine1,
-        line2: user.addressline2,
-        line3: user.addressline3,
+        line2: user.addressLine2,
+        line3: user.addressLine3,
         town: user.town,
         county: user.county,
         postcode: user.postcode
@@ -99,76 +101,82 @@ router.get("/:userId", [requireAuth, validateUserAccess], async (req, res) => {
   }
 });
 
-router.patch("/:userId", [requireAuth, validateUserAccess], async (req, res) => {
-  const { userId } = req.params;
+router.patch(
+  "/:userId",
+  [requireAuth, validateUserAccess, validateSchema(updateUserSchema)],
+  async (req, res) => {
+    const { userId } = req.params;
+    const {
+      name,
+      email,
+      phoneNumber,
+      addressLine1,
+      addressLine2,
+      addressLine3,
+      town,
+      county,
+      postcode
+    } = req.body;
 
-  const {
-    name,
-    email,
-    phoneNumber,
-    addressLine1,
-    addressLine2 = "",
-    addressLine3 = "",
-    town,
-    county,
-    postcode
-  } = req.body;
-
-  if (
-    !Object.keys(req.body).length ||
-    (!name &&
+    // Check if at least one field is provided for update
+    if (
+      !name &&
       !email &&
       !phoneNumber &&
+      !addressLine1 &&
+      !addressLine2 &&
+      !addressLine3 &&
       !town &&
       !county &&
-      !postcode &&
-      !addressLine1 &&
-      !(addressLine2 || addressLine2 === "") &&
-      !(addressLine3 || addressLine3 === ""))
-  ) {
-    return res.status(400).json({ message: "No update fields provided" });
-  }
-
-  const updateData = { updatedTimestamp: new Date().toISOString() };
-  if (name) updateData.name = name;
-  if (email) updateData.email = email;
-  if (phoneNumber) updateData.phoneNumber = phoneNumber;
-  if (addressLine1) updateData.addressLine1 = addressLine1;
-  if (addressLine2) updateData.addressLine2 = addressLine2;
-  if (addressLine3) updateData.addressLine3 = addressLine3;
-  if (town) updateData.town = town;
-  if (county) updateData.county = county;
-  if (postcode) updateData.postcode = postcode;
-
-  try {
-    const user = await prisma.user.update({
-      where: { id: userId },
-      data: updateData
-    });
-    if (!user) {
-      return res.status(404).json({ message: "User was not found" });
+      !postcode
+    ) {
+      return res.status(400).json({ message: "No update fields provided" });
     }
-    return res.status(200).json({
-      id: user.id,
-      name: user.name,
-      address: {
-        line1: user.addressLine1,
-        line2: user.addressLine2,
-        line3: user.addressLine3,
-        town: user.town,
-        county: user.county,
-        postcode: user.postcode
-      },
-      phoneNumber: user.phoneNumber,
-      email: user.email,
-      createdTimestamp: user.createdTimestamp,
-      updatedTimestamp: user.updatedTimestamp
-    });
-  } catch (err) {
-    console.error("Error updating user:", err);
-    return res.status(500).json({ message: "An unexpected error occurred" });
+
+    const updateData = { updatedTimestamp: new Date().toISOString() };
+
+    if (name) updateData.name = name;
+    if (email) updateData.email = email;
+    if (phoneNumber) updateData.phoneNumber = phoneNumber;
+    if (addressLine1) updateData.addressLine1 = addressLine1;
+    if (addressLine2 !== undefined) updateData.addressLine2 = addressLine2;
+    if (addressLine3 !== undefined) updateData.addressLine3 = addressLine3;
+    if (town) updateData.town = town;
+    if (county) updateData.county = county;
+    if (postcode) updateData.postcode = postcode;
+
+    try {
+      const user = await prisma.user.update({
+        where: { id: userId },
+        data: updateData
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "User was not found" });
+      }
+
+      return res.status(200).json({
+        id: user.id,
+        name: user.name,
+        address: {
+          line1: user.addressLine1,
+          line2: user.addressLine2,
+          line3: user.addressLine3,
+          town: user.town,
+          county: user.county,
+          postcode: user.postcode
+        },
+        phoneNumber: user.phoneNumber,
+        email: user.email,
+        createdTimestamp: user.createdTimestamp,
+        updatedTimestamp: user.updatedTimestamp
+      });
+    } catch (err) {
+      console.error("Error updating user:", err);
+      return res.status(500).json({ message: "An unexpected error occurred" });
+    }
   }
-});
+);
 
 router.delete("/:userId", [requireAuth, validateUserAccess], async (req, res) => {
   const { userId } = req.params;

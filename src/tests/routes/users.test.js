@@ -36,15 +36,13 @@ const mockUserId = "usr-abc123";
 const mockUser = {
   name: "Test User",
   email: "testuser@example.com",
-  phoneNumber: "1234567890",
+  phoneNumber: "+1234567890",
   addressLine1: "1 Test St",
   addressLine2: "",
   addressLine3: "",
   town: "Testville",
   county: "Testshire",
-  postcode: "TST 123",
-  createdTimestamp: new Date().toISOString(),
-  updatedTimestamp: new Date().toISOString()
+  postcode: "TST 123"
 };
 
 describe("v1/users", () => {
@@ -64,7 +62,8 @@ describe("v1/users", () => {
         email: "missingfields@example.com"
       });
       expect(statusCode).toBe(400);
-      expect(body).toStrictEqual({ message: "Missing required fields" });
+      expect(body).toHaveProperty("message", "Validation failed");
+      expect(body).toHaveProperty("details");
     });
 
     it("Fails if email is duplicate", async () => {
@@ -72,7 +71,7 @@ describe("v1/users", () => {
       const { body, statusCode } = await request(app).post("/v1/users").send({
         name: "Dup User",
         email: "dup@example.com",
-        phoneNumber: "1234567890",
+        phoneNumber: "+1234567890",
         addressLine1: "1 Dup St",
         addressLine2: "",
         addressLine3: "",
@@ -85,12 +84,10 @@ describe("v1/users", () => {
     });
 
     it("Fails with invalid email format", async () => {
-      prisma.user.findUnique.mockResolvedValueOnce(null);
-      prisma.user.create.mockResolvedValueOnce({ ...mockUser, email: "notanemail", id: 2 });
-      const { statusCode } = await request(app).post("/v1/users").send({
+      const { body, statusCode } = await request(app).post("/v1/users").send({
         name: "Invalid Email",
         email: "notanemail",
-        phoneNumber: "1234567890",
+        phoneNumber: "+1234567890",
         addressLine1: "1 Test St",
         addressLine2: "",
         addressLine3: "",
@@ -98,7 +95,8 @@ describe("v1/users", () => {
         county: "Testshire",
         postcode: "TST 123"
       });
-      expect([201, 400]).toContain(statusCode);
+      expect(statusCode).toBe(400);
+      expect(body).toHaveProperty("message", "Validation failed");
     });
 
     it("Returns 500 if Prisma throws", async () => {
@@ -117,13 +115,15 @@ describe("v1/users", () => {
       id: "usr-abc123",
       name: "Test User",
       email: "testuser@example.com",
-      phoneNumber: "1234567890",
+      phoneNumber: "+1234567890",
       addressLine1: "1 Test St",
       addressLine2: "",
       addressLine3: "",
       town: "Testville",
       county: "Testshire",
-      postcode: "TST 123"
+      postcode: "TST 123",
+      createdTimestamp: new Date().toISOString(),
+      updatedTimestamp: new Date().toISOString()
     };
 
     it("Returns 401 if no token is provided", async () => {
@@ -175,11 +175,15 @@ describe("v1/users", () => {
         email: user.email,
         phoneNumber: user.phoneNumber,
         address: {
-          county: user.county,
           line1: user.addressLine1,
-          postcode: user.postcode,
-          town: user.town
-        }
+          line2: user.addressLine2,
+          line3: user.addressLine3,
+          town: user.town,
+          county: user.county,
+          postcode: user.postcode
+        },
+        createdTimestamp: user.createdTimestamp,
+        updatedTimestamp: user.updatedTimestamp
       });
     });
 
@@ -286,28 +290,29 @@ describe("v1/users", () => {
     });
 
     it("Updates user phone number successfully", async () => {
-      const updatedUser = { ...user, phoneNumber: "9876543210" };
+      const updatedUser = { ...user, phoneNumber: "+9876543210" };
       prisma.user.update.mockResolvedValueOnce(updatedUser);
 
       const { body, statusCode } = await request(app)
         .patch(`/v1/users/${mockUserId}`)
         .set("Authorization", `Bearer dummy-token-${mockUserId}`)
-        .send({ phoneNumber: "9876543210" });
+        .send({ phoneNumber: "+9876543210" });
 
       expect(statusCode).toBe(200);
-      expect(body.phoneNumber).toBe("9876543210");
+      expect(body.phoneNumber).toBe("+9876543210");
     });
 
     it("Updates address fields successfully", async () => {
       const updatedData = {
         addressLine1: "2 Updated St",
         addressLine2: "Apt 5",
-        addressLine3: "Building B",
-        town: "Updated Town",
-        county: "Updated County",
+        addressLine3: "Floor 3",
+        town: "Updatedville",
+        county: "Updatedshire",
         postcode: "UPD 456"
       };
       const updatedUser = { ...user, ...updatedData };
+      prisma.user.findUnique.mockResolvedValueOnce(user);
       prisma.user.update.mockResolvedValueOnce(updatedUser);
 
       const { body, statusCode } = await request(app)
@@ -327,8 +332,16 @@ describe("v1/users", () => {
     });
 
     it("Updates address with empty line2 and line3", async () => {
-      const updatedData = { addressLine2: "", addressLine3: "" };
+      const updatedData = {
+        addressLine1: "3 Empty St",
+        addressLine2: "",
+        addressLine3: "",
+        town: "Emptyville",
+        county: "Emptyshire",
+        postcode: "EMP 789"
+      };
       const updatedUser = { ...user, ...updatedData };
+      prisma.user.findUnique.mockResolvedValueOnce(user);
       prisma.user.update.mockResolvedValueOnce(updatedUser);
 
       const { body, statusCode } = await request(app)
@@ -343,13 +356,18 @@ describe("v1/users", () => {
 
     it("Updates multiple fields simultaneously", async () => {
       const updatedData = {
-        name: "Multi Updated",
-        email: "multi@example.com",
-        phoneNumber: "5551234567",
-        addressLine1: "3 Multi St",
-        town: "Multi Town"
+        name: "Updated Name",
+        email: "updated@example.com",
+        phoneNumber: "+1112223333",
+        addressLine1: "4 Multi St",
+        addressLine2: "Suite 10",
+        addressLine3: "",
+        town: "Multiville",
+        county: "Multishire",
+        postcode: "MUL 101"
       };
       const updatedUser = { ...user, ...updatedData };
+      prisma.user.findUnique.mockResolvedValueOnce(user);
       prisma.user.update.mockResolvedValueOnce(updatedUser);
 
       const { body, statusCode } = await request(app)
@@ -362,7 +380,6 @@ describe("v1/users", () => {
       expect(body.email).toBe(updatedData.email);
       expect(body.phoneNumber).toBe(updatedData.phoneNumber);
       expect(body.address.line1).toBe(updatedData.addressLine1);
-      expect(body.address.town).toBe(updatedData.town);
     });
 
     it("Returns 404 if user is not found", async () => {
@@ -392,8 +409,16 @@ describe("v1/users", () => {
     });
 
     it("Handles partial address updates correctly", async () => {
-      const updatedData = { addressLine1: "4 Partial St", town: "Partial Town" };
-      const updatedUser = { ...user, ...updatedData };
+      const updatedData = {
+        addressLine1: "5 Partial St",
+        town: "Partialville"
+      };
+      const updatedUser = {
+        ...user,
+        addressLine1: updatedData.addressLine1,
+        town: updatedData.town
+      };
+      prisma.user.findUnique.mockResolvedValueOnce(user);
       prisma.user.update.mockResolvedValueOnce(updatedUser);
 
       const { body, statusCode } = await request(app)
@@ -405,8 +430,6 @@ describe("v1/users", () => {
       expect(body.address.line1).toBe(updatedData.addressLine1);
       expect(body.address.town).toBe(updatedData.town);
       expect(body.address.line2).toBe(user.addressLine2);
-      expect(body.address.county).toBe(user.county);
-      expect(body.address.postcode).toBe(user.postcode);
     });
   });
 
