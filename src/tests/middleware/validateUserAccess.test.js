@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 import { validateUserAccess } from "../../middleware/validateUserAccess.js";
 
 const mockUserId = "usr-abc123";

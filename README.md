@@ -105,6 +105,15 @@ A RESTful API for managing users, bank accounts, and transactions (transactions 
 
 ---
 
+## Linting
+
+- **Run linter:**
+  ```sh
+  npm run lint
+  ```
+
+---
+
 ## API Documentation
 
 - The API contract is defined in [`openapi.yaml`](openapi.yaml).

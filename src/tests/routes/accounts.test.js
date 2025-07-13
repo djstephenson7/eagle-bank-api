@@ -1,5 +1,3 @@
-/* eslint-disable no-undef */
-
 import { PrismaClient } from "@prisma/client";
 import { app } from "../../app.js";
 

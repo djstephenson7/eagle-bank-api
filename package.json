@@ -6,9 +6,9 @@
   "scripts": {
     "lint": "eslint src",
     "open-db-gui": "prisma studio",
+    "seed-db": "node prisma/seed.js",
     "start": "nodemon src/app.js",
-    "test": "jest --detectOpenHandles --runInBand",
-    "seed-db": "node prisma/seed.js"
+    "test": "jest --detectOpenHandles --runInBand"
   },
   "dependencies": {
     "@prisma/client": "^6.11.1",
@@ -25,6 +25,7 @@
     "babel-jest": "^30.0.4",
     "cross-env": "^7.0.3",
     "eslint": "^9.31.0",
+    "eslint-plugin-jest": "^29.0.1",
     "globals": "^16.3.0",
     "jest": "^30.0.4",
     "jest-mock-extended": "^4.0.0",

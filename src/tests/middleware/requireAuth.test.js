@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 import { requireAuth } from "../../middleware/requireAuth.js";
 
 describe("requireAuth", () => {
