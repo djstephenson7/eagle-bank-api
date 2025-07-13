@@ -6,7 +6,13 @@ import { PrismaClient } from "@prisma/client";
 let request, server, prisma;
 
 jest.mock("@prisma/client", () => {
-  const account = { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn() };
+  const account = {
+    create: jest.fn(),
+    delete: jest.fn(),
+    findMany: jest.fn(),
+    findUnique: jest.fn(),
+    update: jest.fn()
+  };
   const user = { findUnique: jest.fn() };
   const mockPrisma = {
     account,
@@ -531,6 +537,386 @@ describe("v1/accounts", () => {
       for (const accountNumber of invalidAccountNumbers) {
         const { body, statusCode } = await request(app)
           .get(`/v1/accounts/${accountNumber}`)
+          .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+        expect(statusCode).toBe(400);
+        expect(body).toEqual({ message: "Invalid account number format" });
+      }
+    });
+  });
+
+  describe("PATCH /:accountNumber", () => {
+    it("Updates account name successfully when user owns the account", async () => {
+      const updatedAccount = { ...mockAccount, name: "Updated Account Name" };
+
+      prisma.user.findUnique.mockResolvedValueOnce(mockUser);
+      prisma.account.findUnique.mockResolvedValueOnce(mockAccount);
+      prisma.account.update.mockResolvedValueOnce(updatedAccount);
+
+      const { body, statusCode } = await request(app)
+        .patch("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .send({ name: "Updated Account Name" });
+
+      expect(statusCode).toBe(200);
+      expect(body).toEqual({
+        accountNumber: "01123456",
+        sortCode: "10-10-10",
+        name: "Updated Account Name",
+        accountType: "personal",
+        balance: 0,
+        currency: "GBP",
+        createdTimestamp: mockAccount.createdTimestamp,
+        updatedTimestamp: updatedAccount.updatedTimestamp
+      });
+    });
+
+    it("Updates account type successfully when user owns the account", async () => {
+      const updatedAccount = { ...mockAccount, accountType: "personal" };
+
+      prisma.user.findUnique.mockResolvedValueOnce(mockUser);
+      prisma.account.findUnique.mockResolvedValueOnce(mockAccount);
+      prisma.account.update.mockResolvedValueOnce(updatedAccount);
+
+      const { body, statusCode } = await request(app)
+        .patch("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .send({ accountType: "personal" });
+
+      expect(statusCode).toBe(200);
+      expect(body.accountType).toBe("personal");
+    });
+
+    it("Updates both name and account type successfully", async () => {
+      const updatedAccount = {
+        ...mockAccount,
+        name: "Updated Account Name",
+        accountType: "personal"
+      };
+
+      prisma.user.findUnique.mockResolvedValueOnce(mockUser);
+      prisma.account.findUnique.mockResolvedValueOnce(mockAccount);
+      prisma.account.update.mockResolvedValueOnce(updatedAccount);
+
+      const { body, statusCode } = await request(app)
+        .patch("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .send({
+          name: "Updated Account Name",
+          accountType: "personal"
+        });
+
+      expect(statusCode).toBe(200);
+      expect(body.name).toBe("Updated Account Name");
+      expect(body.accountType).toBe("personal");
+    });
+
+    it("Returns 400 for invalid account number format", async () => {
+      const { body, statusCode } = await request(app)
+        .patch("/v1/accounts/12345678")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .send({ name: "Updated Name" });
+
+      expect(statusCode).toBe(400);
+      expect(body).toEqual({ message: "Invalid account number format" });
+    });
+
+    it("Returns 400 when no fields are provided for update", async () => {
+      const { body, statusCode } = await request(app)
+        .patch("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .send({});
+
+      expect(statusCode).toBe(400);
+      expect(body).toEqual({
+        message: "At least one field (name or accountType) must be provided"
+      });
+    });
+
+    it("Returns 400 when accountType is not 'personal'", async () => {
+      const { body, statusCode } = await request(app)
+        .patch("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .send({ accountType: "business" });
+
+      expect(statusCode).toBe(400);
+      expect(body).toEqual({ message: "Invalid accountType. Must be 'personal'" });
+    });
+
+    it("Returns 401 if no authorization header is provided", async () => {
+      const { body, statusCode } = await request(app)
+        .patch("/v1/accounts/01123456")
+        .send({ name: "Updated Name" });
+
+      expect(statusCode).toBe(401);
+      expect(body).toEqual({ message: "Missing or invalid token" });
+    });
+
+    it("Returns 401 if authorization header is malformed", async () => {
+      const { body, statusCode } = await request(app)
+        .patch("/v1/accounts/01123456")
+        .set("Authorization", "Invalid-Token")
+        .send({ name: "Updated Name" });
+
+      expect(statusCode).toBe(401);
+      expect(body).toEqual({ message: "Missing or invalid token" });
+    });
+
+    it("Returns 403 if token does not start with 'dummy-token-'", async () => {
+      const { body, statusCode } = await request(app)
+        .patch("/v1/accounts/01123456")
+        .set("Authorization", "Bearer notdummy-usr-abc123")
+        .send({ name: "Updated Name" });
+
+      expect(statusCode).toBe(403);
+      expect(body).toEqual({ message: "Invalid token" });
+    });
+
+    it("Returns 401 if user is not found", async () => {
+      prisma.user.findUnique.mockResolvedValueOnce(null);
+
+      const { body, statusCode } = await request(app)
+        .patch("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .send({ name: "Updated Name" });
+
+      expect(statusCode).toBe(401);
+      expect(body).toEqual({ message: "Access token is missing or invalid" });
+    });
+
+    it("Returns 404 when account is not found", async () => {
+      prisma.user.findUnique.mockResolvedValueOnce(mockUser);
+      prisma.account.findUnique.mockResolvedValueOnce(null);
+
+      const { body, statusCode } = await request(app)
+        .patch("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .send({ name: "Updated Name" });
+
+      expect(statusCode).toBe(404);
+      expect(body).toEqual({ message: "Bank account not found" });
+    });
+
+    it("Returns 403 when user tries to update another user's account", async () => {
+      const otherUserAccount = { ...mockAccount, userId: "usr-xyz789" };
+
+      prisma.user.findUnique.mockResolvedValueOnce(mockUser);
+      prisma.account.findUnique.mockResolvedValueOnce(otherUserAccount);
+
+      const { body, statusCode } = await request(app)
+        .patch("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .send({ name: "Updated Name" });
+
+      expect(statusCode).toBe(403);
+      expect(body).toEqual({ message: "Access forbidden" });
+    });
+
+    it("Returns 500 if Prisma throws an error during user lookup", async () => {
+      prisma.user.findUnique.mockImplementationOnce(() => {
+        throw new Error("Database connection error");
+      });
+
+      const { body, statusCode } = await request(app)
+        .patch("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .send({ name: "Updated Name" });
+
+      expect(statusCode).toBe(500);
+      expect(body).toEqual({ message: "An unexpected error occurred" });
+    });
+
+    it("Returns 500 if Prisma throws an error during account lookup", async () => {
+      prisma.user.findUnique.mockResolvedValueOnce(mockUser);
+      prisma.account.findUnique.mockImplementationOnce(() => {
+        throw new Error("Database connection error");
+      });
+
+      const { body, statusCode } = await request(app)
+        .patch("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .send({ name: "Updated Name" });
+
+      expect(statusCode).toBe(500);
+      expect(body).toEqual({ message: "An unexpected error occurred" });
+    });
+
+    it("Returns 500 if Prisma throws an error during account update", async () => {
+      prisma.user.findUnique.mockResolvedValueOnce(mockUser);
+      prisma.account.findUnique.mockResolvedValueOnce(mockAccount);
+      prisma.account.update.mockImplementationOnce(() => {
+        throw new Error("Database connection error");
+      });
+
+      const { body, statusCode } = await request(app)
+        .patch("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .send({ name: "Updated Name" });
+
+      expect(statusCode).toBe(500);
+      expect(body).toEqual({ message: "An unexpected error occurred" });
+    });
+  });
+
+  describe("DELETE /:accountNumber", () => {
+    it("Deletes account successfully when user owns the account", async () => {
+      prisma.user.findUnique.mockResolvedValueOnce(mockUser);
+      prisma.account.findUnique.mockResolvedValueOnce(mockAccount);
+      prisma.account.delete.mockResolvedValueOnce(mockAccount);
+
+      const { statusCode } = await request(app)
+        .delete("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+      expect(statusCode).toBe(204);
+    });
+
+    it("Returns 400 for invalid account number format", async () => {
+      const { body, statusCode } = await request(app)
+        .delete("/v1/accounts/12345678")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+      expect(statusCode).toBe(400);
+      expect(body).toEqual({ message: "Invalid account number format" });
+    });
+
+    it("Returns 401 if no authorization header is provided", async () => {
+      const { body, statusCode } = await request(app).delete("/v1/accounts/01123456");
+
+      expect(statusCode).toBe(401);
+      expect(body).toEqual({ message: "Missing or invalid token" });
+    });
+
+    it("Returns 401 if authorization header is malformed", async () => {
+      const { body, statusCode } = await request(app)
+        .delete("/v1/accounts/01123456")
+        .set("Authorization", "Invalid-Token");
+
+      expect(statusCode).toBe(401);
+      expect(body).toEqual({ message: "Missing or invalid token" });
+    });
+
+    it("Returns 403 if token does not start with 'dummy-token-'", async () => {
+      const { body, statusCode } = await request(app)
+        .delete("/v1/accounts/01123456")
+        .set("Authorization", "Bearer notdummy-usr-abc123");
+
+      expect(statusCode).toBe(403);
+      expect(body).toEqual({ message: "Invalid token" });
+    });
+
+    it("Returns 401 if user is not found", async () => {
+      prisma.user.findUnique.mockResolvedValueOnce(null);
+
+      const { body, statusCode } = await request(app)
+        .delete("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+      expect(statusCode).toBe(401);
+      expect(body).toEqual({ message: "Access token is missing or invalid" });
+    });
+
+    it("Returns 404 when account is not found", async () => {
+      prisma.user.findUnique.mockResolvedValueOnce(mockUser);
+      prisma.account.findUnique.mockResolvedValueOnce(null);
+
+      const { body, statusCode } = await request(app)
+        .delete("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+      expect(statusCode).toBe(404);
+      expect(body).toEqual({ message: "Bank account not found" });
+    });
+
+    it("Returns 403 when user tries to delete another user's account", async () => {
+      const otherUserAccount = { ...mockAccount, userId: "usr-xyz789" };
+
+      prisma.user.findUnique.mockResolvedValueOnce(mockUser);
+      prisma.account.findUnique.mockResolvedValueOnce(otherUserAccount);
+
+      const { body, statusCode } = await request(app)
+        .delete("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+      expect(statusCode).toBe(403);
+      expect(body).toEqual({ message: "Access forbidden" });
+    });
+
+    it("Returns 500 if Prisma throws an error during user lookup", async () => {
+      prisma.user.findUnique.mockImplementationOnce(() => {
+        throw new Error("Database connection error");
+      });
+
+      const { body, statusCode } = await request(app)
+        .delete("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+      expect(statusCode).toBe(500);
+      expect(body).toEqual({ message: "An unexpected error occurred" });
+    });
+
+    it("Returns 500 if Prisma throws an error during account lookup", async () => {
+      prisma.user.findUnique.mockResolvedValueOnce(mockUser);
+      prisma.account.findUnique.mockImplementationOnce(() => {
+        throw new Error("Database connection error");
+      });
+
+      const { body, statusCode } = await request(app)
+        .delete("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+      expect(statusCode).toBe(500);
+      expect(body).toEqual({ message: "An unexpected error occurred" });
+    });
+
+    it("Returns 500 if Prisma throws an error during account deletion", async () => {
+      prisma.user.findUnique.mockResolvedValueOnce(mockUser);
+      prisma.account.findUnique.mockResolvedValueOnce(mockAccount);
+      prisma.account.delete.mockImplementationOnce(() => {
+        throw new Error("Database connection error");
+      });
+
+      const { body, statusCode } = await request(app)
+        .delete("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+      expect(statusCode).toBe(500);
+      expect(body).toEqual({ message: "An unexpected error occurred" });
+    });
+
+    it("Validates account number pattern correctly for valid numbers", async () => {
+      const validAccountNumbers = ["01123456", "01654321", "01999999", "01000000"];
+
+      for (const accountNumber of validAccountNumbers) {
+        prisma.user.findUnique.mockResolvedValueOnce(mockUser);
+        prisma.account.findUnique.mockResolvedValueOnce(mockAccount);
+        prisma.account.delete.mockResolvedValueOnce(mockAccount);
+
+        const { statusCode } = await request(app)
+          .delete(`/v1/accounts/${accountNumber}`)
+          .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+        expect(statusCode).not.toBe(400);
+      }
+    });
+
+    it("Rejects invalid account number patterns", async () => {
+      const invalidAccountNumbers = [
+        "00123456", // doesn't start with 01
+        "02123456", // doesn't start with 01
+        "0112345", // too short
+        "011234567", // too long
+        "0112345a", // contains non-digit
+        "0112345A", // contains uppercase letter
+        "0112345 ", // contains space
+        "0112345-", // contains special character
+        "01 12345", // contains space
+        "01-12345" // contains dash
+      ];
+
+      for (const accountNumber of invalidAccountNumbers) {
+        const { body, statusCode } = await request(app)
+          .delete(`/v1/accounts/${accountNumber}`)
           .set("Authorization", `Bearer dummy-token-${mockUserId}`);
 
         expect(statusCode).toBe(400);
