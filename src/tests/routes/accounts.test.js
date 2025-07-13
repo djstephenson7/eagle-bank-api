@@ -1,7 +1,7 @@
 /* eslint-disable no-undef */
 
-import { app } from "../../app.js";
 import { PrismaClient } from "@prisma/client";
+import { app } from "../../app.js";
 
 let request, server, prisma;
 
@@ -135,7 +135,9 @@ describe("v1/accounts", () => {
         .send({ accountType: "personal" });
 
       expect(statusCode).toBe(400);
-      expect(body).toEqual({ message: "Missing required fields: name and accountType" });
+      expect(body).toHaveProperty("message", "Validation failed");
+      expect(body).toHaveProperty("details");
+      expect(body.details.some((d) => d.field === "name" && d.type === "any.required")).toBe(true);
     });
 
     it("Returns 400 if accountType is missing", async () => {
@@ -145,7 +147,11 @@ describe("v1/accounts", () => {
         .send({ name: "Test Account" });
 
       expect(statusCode).toBe(400);
-      expect(body).toEqual({ message: "Missing required fields: name and accountType" });
+      expect(body).toHaveProperty("message", "Validation failed");
+      expect(body).toHaveProperty("details");
+      expect(body.details.some((d) => d.field === "accountType" && d.type === "any.required")).toBe(
+        true
+      );
     });
 
     it("Returns 400 if accountType is not 'personal'", async () => {
@@ -155,7 +161,11 @@ describe("v1/accounts", () => {
         .send({ name: "Test Account", accountType: "business" });
 
       expect(statusCode).toBe(400);
-      expect(body).toEqual({ message: "Invalid accountType. Must be 'personal'" });
+      expect(body).toHaveProperty("message", "Validation failed");
+      expect(body).toHaveProperty("details");
+      expect(body.details.some((d) => d.field === "accountType" && d.type === "any.only")).toBe(
+        true
+      );
     });
 
     it("Returns 401 if user is not found", async () => {
@@ -358,7 +368,11 @@ describe("v1/accounts", () => {
         .set("Authorization", `Bearer dummy-token-${mockUserId}`);
 
       expect(statusCode).toBe(400);
-      expect(body).toEqual({ message: "Invalid account number format" });
+      expect(body).toHaveProperty("message", "Invalid account number format");
+      expect(body).toHaveProperty("details");
+      expect(
+        body.details.some((d) => d.field === "accountNumber" && d.type === "string.pattern.base")
+      ).toBe(true);
     });
 
     it("Returns 400 for account number that doesn't start with '01'", async () => {
@@ -367,7 +381,11 @@ describe("v1/accounts", () => {
         .set("Authorization", `Bearer dummy-token-${mockUserId}`);
 
       expect(statusCode).toBe(400);
-      expect(body).toEqual({ message: "Invalid account number format" });
+      expect(body).toHaveProperty("message", "Invalid account number format");
+      expect(body).toHaveProperty("details");
+      expect(
+        body.details.some((d) => d.field === "accountNumber" && d.type === "string.pattern.base")
+      ).toBe(true);
     });
 
     it("Returns 400 for account number that's too short", async () => {
@@ -376,7 +394,11 @@ describe("v1/accounts", () => {
         .set("Authorization", `Bearer dummy-token-${mockUserId}`);
 
       expect(statusCode).toBe(400);
-      expect(body).toEqual({ message: "Invalid account number format" });
+      expect(body).toHaveProperty("message", "Invalid account number format");
+      expect(body).toHaveProperty("details");
+      expect(
+        body.details.some((d) => d.field === "accountNumber" && d.type === "string.pattern.base")
+      ).toBe(true);
     });
 
     it("Returns 400 for account number that's too long", async () => {
@@ -385,7 +407,11 @@ describe("v1/accounts", () => {
         .set("Authorization", `Bearer dummy-token-${mockUserId}`);
 
       expect(statusCode).toBe(400);
-      expect(body).toEqual({ message: "Invalid account number format" });
+      expect(body).toHaveProperty("message", "Invalid account number format");
+      expect(body).toHaveProperty("details");
+      expect(
+        body.details.some((d) => d.field === "accountNumber" && d.type === "string.pattern.base")
+      ).toBe(true);
     });
 
     it("Returns 401 if no authorization header is provided", async () => {
@@ -540,7 +566,11 @@ describe("v1/accounts", () => {
           .set("Authorization", `Bearer dummy-token-${mockUserId}`);
 
         expect(statusCode).toBe(400);
-        expect(body).toEqual({ message: "Invalid account number format" });
+        expect(body).toHaveProperty("message", "Invalid account number format");
+        expect(body).toHaveProperty("details");
+        expect(
+          body.details.some((d) => d.field === "accountNumber" && d.type === "string.pattern.base")
+        ).toBe(true);
       }
     });
   });
@@ -618,7 +648,11 @@ describe("v1/accounts", () => {
         .send({ name: "Updated Name" });
 
       expect(statusCode).toBe(400);
-      expect(body).toEqual({ message: "Invalid account number format" });
+      expect(body).toHaveProperty("message", "Invalid account number format");
+      expect(body).toHaveProperty("details");
+      expect(
+        body.details.some((d) => d.field === "accountNumber" && d.type === "string.pattern.base")
+      ).toBe(true);
     });
 
     it("Returns 400 when no fields are provided for update", async () => {
@@ -628,9 +662,9 @@ describe("v1/accounts", () => {
         .send({});
 
       expect(statusCode).toBe(400);
-      expect(body).toEqual({
-        message: "At least one field (name or accountType) must be provided"
-      });
+      expect(body).toHaveProperty("message", "Validation failed");
+      expect(body).toHaveProperty("details");
+      expect(body.details.some((d) => d.type === "object.missing")).toBe(true);
     });
 
     it("Returns 400 when accountType is not 'personal'", async () => {
@@ -640,7 +674,11 @@ describe("v1/accounts", () => {
         .send({ accountType: "business" });
 
       expect(statusCode).toBe(400);
-      expect(body).toEqual({ message: "Invalid accountType. Must be 'personal'" });
+      expect(body).toHaveProperty("message", "Validation failed");
+      expect(body).toHaveProperty("details");
+      expect(body.details.some((d) => d.field === "accountType" && d.type === "any.only")).toBe(
+        true
+      );
     });
 
     it("Returns 401 if no authorization header is provided", async () => {
@@ -777,7 +815,11 @@ describe("v1/accounts", () => {
         .set("Authorization", `Bearer dummy-token-${mockUserId}`);
 
       expect(statusCode).toBe(400);
-      expect(body).toEqual({ message: "Invalid account number format" });
+      expect(body).toHaveProperty("message", "Invalid account number format");
+      expect(body).toHaveProperty("details");
+      expect(
+        body.details.some((d) => d.field === "accountNumber" && d.type === "string.pattern.base")
+      ).toBe(true);
     });
 
     it("Returns 401 if no authorization header is provided", async () => {
@@ -920,7 +962,11 @@ describe("v1/accounts", () => {
           .set("Authorization", `Bearer dummy-token-${mockUserId}`);
 
         expect(statusCode).toBe(400);
-        expect(body).toEqual({ message: "Invalid account number format" });
+        expect(body).toHaveProperty("message", "Invalid account number format");
+        expect(body).toHaveProperty("details");
+        expect(
+          body.details.some((d) => d.field === "accountNumber" && d.type === "string.pattern.base")
+        ).toBe(true);
       }
     });
   });

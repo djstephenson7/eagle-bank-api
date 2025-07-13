@@ -1,13 +1,13 @@
+import crypto from "crypto";
 import express from "express";
-import { prisma } from "../startup/connectToDatabase.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { validateUserAccess } from "../middleware/validateUserAccess.js";
 import {
-  validateSchema,
   createUserSchema,
-  updateUserSchema
+  updateUserSchema,
+  validateSchema
 } from "../middleware/validateUserSchemas.js";
-import crypto from "crypto";
+import { prisma } from "../startup/connectToDatabase.js";
 
 const router = express.Router();
 
