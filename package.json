@@ -7,7 +7,8 @@
     "lint": "eslint src",
     "open-db-gui": "prisma studio",
     "start": "nodemon src/app.js",
-    "test": "jest --detectOpenHandles --runInBand"
+    "test": "jest --detectOpenHandles --runInBand",
+    "seed-db": "node prisma/seed.js"
   },
   "dependencies": {
     "@prisma/client": "^6.11.1",

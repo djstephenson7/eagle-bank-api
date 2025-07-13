@@ -33,7 +33,7 @@ model User {
 
 model Account {
   id               Int      @id @default(autoincrement())
-  accountNumber    String   // pattern: ^01\d{6}$
+  accountNumber    String   @unique // pattern: ^01\d{6}$
   sortCode         String   // pattern: ^\d{2}-\d{2}-\d{2}$
   name             String
   accountType      AccountType
