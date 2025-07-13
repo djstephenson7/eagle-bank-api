@@ -84,4 +84,46 @@ router.get("/", [requireAuth], async (req, res) => {
   }
 });
 
+router.get("/:accountNumber", [requireAuth], async (req, res) => {
+  try {
+    const { accountNumber } = req.params;
+    const authenticatedUserId = req.authenticatedUserId;
+    const accountNumberPattern = /^01\d{6}$/;
+
+    if (!accountNumberPattern.test(accountNumber)) {
+      return res.status(400).json({ message: "Invalid account number format" });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: authenticatedUserId } });
+    if (!user) {
+      return res.status(401).json({ message: "Access token is missing or invalid" });
+    }
+
+    const account = await prisma.account.findUnique({ where: { accountNumber } });
+
+    if (!account) {
+      return res.status(404).json({ message: "Bank account not found" });
+    }
+
+    // Check if the authenticated user owns this account
+    if (account.userId !== authenticatedUserId) {
+      return res.status(403).json({ message: "Access forbidden" });
+    }
+
+    return res.status(200).json({
+      accountNumber: account.accountNumber,
+      sortCode: account.sortCode,
+      name: account.name,
+      accountType: account.accountType,
+      balance: account.balance / 100,
+      currency: account.currency,
+      createdTimestamp: account.createdTimestamp,
+      updatedTimestamp: account.updatedTimestamp
+    });
+  } catch (err) {
+    console.error("Error fetching account:", err);
+    return res.status(500).json({ message: "An unexpected error occurred" });
+  }
+});
+
 export default router;

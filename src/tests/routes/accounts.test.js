@@ -321,4 +321,221 @@ describe("v1/accounts", () => {
       expect(body.accounts[1].balance).toBe(12.5);
     });
   });
+
+  describe("GET /:accountNumber", () => {
+    it("Returns account details successfully when user owns the account", async () => {
+      const mockAccountWithBalance = { ...mockAccount, balance: 15_00 };
+
+      prisma.user.findUnique.mockResolvedValueOnce(mockUser);
+      prisma.account.findUnique.mockResolvedValueOnce(mockAccountWithBalance);
+
+      const { body, statusCode } = await request(app)
+        .get("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+      expect(statusCode).toBe(200);
+      expect(body).toEqual({
+        accountNumber: "01123456",
+        sortCode: "10-10-10",
+        name: "Test Account",
+        accountType: "personal",
+        balance: 15,
+        currency: "GBP",
+        createdTimestamp: mockAccount.createdTimestamp,
+        updatedTimestamp: mockAccount.updatedTimestamp
+      });
+    });
+
+    it("Returns 400 for invalid account number format", async () => {
+      const { body, statusCode } = await request(app)
+        .get("/v1/accounts/12345678")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+      expect(statusCode).toBe(400);
+      expect(body).toEqual({ message: "Invalid account number format" });
+    });
+
+    it("Returns 400 for account number that doesn't start with '01'", async () => {
+      const { body, statusCode } = await request(app)
+        .get("/v1/accounts/02123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+      expect(statusCode).toBe(400);
+      expect(body).toEqual({ message: "Invalid account number format" });
+    });
+
+    it("Returns 400 for account number that's too short", async () => {
+      const { body, statusCode } = await request(app)
+        .get("/v1/accounts/0112345")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+      expect(statusCode).toBe(400);
+      expect(body).toEqual({ message: "Invalid account number format" });
+    });
+
+    it("Returns 400 for account number that's too long", async () => {
+      const { body, statusCode } = await request(app)
+        .get("/v1/accounts/011234567")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+      expect(statusCode).toBe(400);
+      expect(body).toEqual({ message: "Invalid account number format" });
+    });
+
+    it("Returns 401 if no authorization header is provided", async () => {
+      const { body, statusCode } = await request(app).get("/v1/accounts/01123456");
+
+      expect(statusCode).toBe(401);
+      expect(body).toEqual({ message: "Missing or invalid token" });
+    });
+
+    it("Returns 401 if authorization header is malformed", async () => {
+      const { body, statusCode } = await request(app)
+        .get("/v1/accounts/01123456")
+        .set("Authorization", "Invalid-Token");
+
+      expect(statusCode).toBe(401);
+      expect(body).toEqual({ message: "Missing or invalid token" });
+    });
+
+    it("Returns 403 if token does not start with 'dummy-token-'", async () => {
+      const { body, statusCode } = await request(app)
+        .get("/v1/accounts/01123456")
+        .set("Authorization", "Bearer notdummy-usr-abc123");
+
+      expect(statusCode).toBe(403);
+      expect(body).toEqual({ message: "Invalid token" });
+    });
+
+    it("Returns 401 if user is not found", async () => {
+      prisma.user.findUnique.mockResolvedValueOnce(null);
+
+      const { body, statusCode } = await request(app)
+        .get("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+      expect(statusCode).toBe(401);
+      expect(body).toEqual({ message: "Access token is missing or invalid" });
+    });
+
+    it("Returns 404 when account is not found", async () => {
+      prisma.user.findUnique.mockResolvedValueOnce(mockUser);
+      prisma.account.findUnique.mockResolvedValueOnce(null);
+
+      const { body, statusCode } = await request(app)
+        .get("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+      expect(statusCode).toBe(404);
+      expect(body).toEqual({ message: "Bank account not found" });
+    });
+
+    it("Returns 403 when user tries to access another user's account", async () => {
+      const otherUserAccount = { ...mockAccount, userId: "usr-xyz789" };
+
+      prisma.user.findUnique.mockResolvedValueOnce(mockUser);
+      prisma.account.findUnique.mockResolvedValueOnce(otherUserAccount);
+
+      const { body, statusCode } = await request(app)
+        .get("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+      expect(statusCode).toBe(403);
+      expect(body).toEqual({ message: "Access forbidden" });
+    });
+
+    it("Handles accounts with zero balance correctly", async () => {
+      const mockAccountZeroBalance = { ...mockAccount, balance: 0 };
+
+      prisma.user.findUnique.mockResolvedValueOnce(mockUser);
+      prisma.account.findUnique.mockResolvedValueOnce(mockAccountZeroBalance);
+
+      const { body, statusCode } = await request(app)
+        .get("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+      expect(statusCode).toBe(200);
+      expect(body.balance).toBe(0);
+    });
+
+    it("Handles accounts with decimal balance correctly", async () => {
+      const mockAccountDecimalBalance = { ...mockAccount, balance: 12_50 };
+
+      prisma.user.findUnique.mockResolvedValueOnce(mockUser);
+      prisma.account.findUnique.mockResolvedValueOnce(mockAccountDecimalBalance);
+
+      const { body, statusCode } = await request(app)
+        .get("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+      expect(statusCode).toBe(200);
+      expect(body.balance).toBe(12.5);
+    });
+
+    it("Returns 500 if Prisma throws an error during user lookup", async () => {
+      prisma.user.findUnique.mockImplementationOnce(() => {
+        throw new Error("Database connection error");
+      });
+
+      const { body, statusCode } = await request(app)
+        .get("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+      expect(statusCode).toBe(500);
+      expect(body).toEqual({ message: "An unexpected error occurred" });
+    });
+
+    it("Returns 500 if Prisma throws an error during account lookup", async () => {
+      prisma.user.findUnique.mockResolvedValueOnce(mockUser);
+      prisma.account.findUnique.mockImplementationOnce(() => {
+        throw new Error("Database connection error");
+      });
+
+      const { body, statusCode } = await request(app)
+        .get("/v1/accounts/01123456")
+        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+      expect(statusCode).toBe(500);
+      expect(body).toEqual({ message: "An unexpected error occurred" });
+    });
+
+    it("Validates account number pattern correctly for valid numbers", async () => {
+      const validAccountNumbers = ["01123456", "01654321", "01999999", "01000000"];
+
+      for (const accountNumber of validAccountNumbers) {
+        prisma.user.findUnique.mockResolvedValueOnce(mockUser);
+        prisma.account.findUnique.mockResolvedValueOnce(mockAccount);
+
+        const { statusCode } = await request(app)
+          .get(`/v1/accounts/${accountNumber}`)
+          .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+        expect(statusCode).not.toBe(400);
+      }
+    });
+
+    it("Rejects invalid account number patterns", async () => {
+      const invalidAccountNumbers = [
+        "00123456", // doesn't start with 01
+        "02123456", // doesn't start with 01
+        "0112345", // too short
+        "011234567", // too long
+        "0112345a", // contains non-digit
+        "0112345A", // contains uppercase letter
+        "0112345 ", // contains space
+        "0112345-", // contains special character
+        "01 12345", // contains space
+        "01-12345" // contains dash
+      ];
+
+      for (const accountNumber of invalidAccountNumbers) {
+        const { body, statusCode } = await request(app)
+          .get(`/v1/accounts/${accountNumber}`)
+          .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+
+        expect(statusCode).toBe(400);
+        expect(body).toEqual({ message: "Invalid account number format" });
+      }
+    });
+  });
 });
