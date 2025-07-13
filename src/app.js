@@ -1,19 +1,17 @@
 import express from "express";
-import { connectToDatabase } from "./startup/connectToDatabase.js";
-import users from "./routes/users.js";
+import accounts from "./routes/accounts.js";
 import auth from "./routes/auth.js";
+import users from "./routes/users.js";
+import { connectToDatabase } from "./startup/connectToDatabase.js";
 
 const app = express();
 const port = 3000;
 
 app.use(express.json());
 
-app.use("/v1/users", users);
+app.use("/v1/accounts", accounts);
 app.use("/v1/auth", auth);
-
-app.get("/", (req, res) => {
-  res.send("Hello World!");
-});
+app.use("/v1/users", users);
 
 connectToDatabase();
 

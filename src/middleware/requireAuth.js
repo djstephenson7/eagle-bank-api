@@ -12,5 +12,9 @@ export const requireAuth = (req, res, next) => {
     return res.status(403).json({ message: "Invalid token" });
   }
 
+  // Extract the user ID from the token and make it available to route handlers
+  const authenticatedUserId = token.replace("dummy-token-", "");
+  req.authenticatedUserId = authenticatedUserId;
+
   next();
 };
