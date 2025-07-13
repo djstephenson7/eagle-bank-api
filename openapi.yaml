@@ -617,6 +617,54 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /v1/auth:
+    post:
+      tags:
+        - auth
+      summary: Authenticate user and return JWT
+      description: |
+        Authenticates a user by email and returns a JWT in the response body and as an Authorization header.
+        The JWT contains the user's ID and is required for all subsequent authenticated requests.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "200":
+          description: Successfully authenticated. JWT returned in both the response body and Authorization header.
+          headers:
+            Authorization:
+              description: JWT for authenticated requests (Bearer token)
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: JWT for authenticated requests (Bearer token)
+        "400":
+          description: Email is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     CreateBankAccountRequest:
