@@ -1,17 +1,17 @@
 import crypto from "crypto";
 import express from "express";
-import { requireAuth } from "../middleware/requireAuth.js";
-import { validateUserAccess } from "../middleware/validateUserAccess.js";
+import { requireAuth, validateUserAccess } from "../middleware";
 import {
   createUserSchema,
   updateUserSchema,
   validateSchema
 } from "../middleware/validateUserSchemas.js";
 import { prisma } from "../startup/connectToDatabase.js";
+import { NotFoundError, ValidationError } from "../utils/errors.js";
 
 const router = express.Router();
 
-router.post("/", [validateSchema(createUserSchema)], async (req, res) => {
+router.post("/", [validateSchema(createUserSchema)], async (req, res, next) => {
   try {
     const {
       name,
@@ -26,9 +26,8 @@ router.post("/", [validateSchema(createUserSchema)], async (req, res) => {
     } = req.body;
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
-      return res.status(400).json({ message: "A user with this email already exists." });
-    }
+
+    if (existingUser) throw new ValidationError("A user with this email already exists.");
 
     const user = await prisma.user.create({
       data: {
@@ -64,20 +63,17 @@ router.post("/", [validateSchema(createUserSchema)], async (req, res) => {
       }
     });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: "An unexpected error occurred" });
+    next(err);
   }
 });
 
-router.get("/:userId", [requireAuth, validateUserAccess], async (req, res) => {
+router.get("/:userId", [requireAuth, validateUserAccess], async (req, res, next) => {
   const { userId } = req.params;
 
   try {
     const user = await prisma.user.findUnique({ where: { id: userId } });
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
+    if (!user) throw new NotFoundError("User not found");
 
     res.status(200).json({
       id: user.id,
@@ -96,15 +92,14 @@ router.get("/:userId", [requireAuth, validateUserAccess], async (req, res) => {
       }
     });
   } catch (err) {
-    console.error("Error fetching user:", err);
-    res.status(500).json({ message: "An unexpected error occurred" });
+    next(err);
   }
 });
 
 router.patch(
   "/:userId",
   [requireAuth, validateUserAccess, validateSchema(updateUserSchema)],
-  async (req, res) => {
+  async (req, res, next) => {
     const { userId } = req.params;
     const {
       name,
@@ -130,7 +125,7 @@ router.patch(
       !county &&
       !postcode
     ) {
-      return res.status(400).json({ message: "No update fields provided" });
+      throw new ValidationError("No update fields provided");
     }
 
     const updateData = { updatedTimestamp: new Date().toISOString() };
@@ -151,9 +146,7 @@ router.patch(
         data: updateData
       });
 
-      if (!user) {
-        return res.status(404).json({ message: "User was not found" });
-      }
+      if (!user) throw new NotFoundError("User was not found");
 
       return res.status(200).json({
         id: user.id,
@@ -172,8 +165,7 @@ router.patch(
         updatedTimestamp: user.updatedTimestamp
       });
     } catch (err) {
-      console.error("Error updating user:", err);
-      return res.status(500).json({ message: "An unexpected error occurred" });
+      next(err);
     }
   }
 );

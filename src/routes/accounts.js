@@ -1,5 +1,5 @@
 import express from "express";
-import { requireAuth } from "../middleware/requireAuth.js";
+import { requireAuth } from "../middleware";
 import {
   accountNumberParamSchema,
   createAccountSchema,
@@ -8,18 +8,18 @@ import {
   validateSchema
 } from "../middleware/validateAccountSchemas.js";
 import { prisma } from "../startup/connectToDatabase.js";
+import { ForbiddenError, NotFoundError, UnauthorisedError } from "../utils/errors.js";
 
 const router = express.Router();
 
-router.post("/", [requireAuth, validateSchema(createAccountSchema)], async (req, res) => {
+router.post("/", [requireAuth, validateSchema(createAccountSchema)], async (req, res, next) => {
   try {
     const { name, accountType } = req.body;
     const authenticatedUserId = req.authenticatedUserId;
 
     const user = await prisma.user.findUnique({ where: { id: authenticatedUserId } });
-    if (!user) {
-      return res.status(401).json({ message: "Access token is missing or invalid" });
-    }
+
+    if (!user) throw new UnauthorisedError();
 
     const account = await prisma.account.create({
       data: {
@@ -46,19 +46,16 @@ router.post("/", [requireAuth, validateSchema(createAccountSchema)], async (req,
       updatedTimestamp: account.updatedTimestamp
     });
   } catch (err) {
-    console.error("Error creating account:", err);
-    return res.status(500).json({ message: "An unexpected error occurred" });
+    next(err);
   }
 });
 
-router.get("/", [requireAuth], async (req, res) => {
+router.get("/", [requireAuth], async (req, res, next) => {
   try {
     const authenticatedUserId = req.authenticatedUserId;
     const user = await prisma.user.findUnique({ where: { id: authenticatedUserId } });
 
-    if (!user) {
-      return res.status(401).json({ message: "Access token is missing or invalid" });
-    }
+    if (!user) throw new UnauthorisedError();
 
     const accounts = await prisma.account.findMany({
       where: { userId: authenticatedUserId },
@@ -78,34 +75,28 @@ router.get("/", [requireAuth], async (req, res) => {
       }))
     });
   } catch (err) {
-    console.error("Error fetching accounts:", err);
-    return res.status(500).json({ message: "An unexpected error occurred" });
+    next(err);
   }
 });
 
 router.get(
   "/:accountNumber",
   [requireAuth, validateParams(accountNumberParamSchema)],
-  async (req, res) => {
+  async (req, res, next) => {
     try {
       const { accountNumber } = req.params;
       const authenticatedUserId = req.authenticatedUserId;
 
       const user = await prisma.user.findUnique({ where: { id: authenticatedUserId } });
-      if (!user) {
-        return res.status(401).json({ message: "Access token is missing or invalid" });
-      }
+
+      if (!user) throw new UnauthorisedError();
 
       const account = await prisma.account.findUnique({ where: { accountNumber } });
 
-      if (!account) {
-        return res.status(404).json({ message: "Bank account not found" });
-      }
+      if (!account) throw new NotFoundError("Bank account not found");
 
       // Check if the authenticated user owns this account
-      if (account.userId !== authenticatedUserId) {
-        return res.status(403).json({ message: "Access forbidden" });
-      }
+      if (account.userId !== authenticatedUserId) throw new ForbiddenError("Access forbidden");
 
       return res.status(200).json({
         accountNumber: account.accountNumber,
@@ -118,8 +109,7 @@ router.get(
         updatedTimestamp: account.updatedTimestamp
       });
     } catch (err) {
-      console.error("Error fetching account:", err);
-      return res.status(500).json({ message: "An unexpected error occurred" });
+      next(err);
     }
   }
 );
@@ -127,24 +117,18 @@ router.get(
 router.patch(
   "/:accountNumber",
   [requireAuth, validateParams(accountNumberParamSchema), validateSchema(updateAccountSchema)],
-  async (req, res) => {
+  async (req, res, next) => {
     try {
       const { accountNumber } = req.params;
       const { name, accountType } = req.body;
-      const user = await prisma.user.findUnique({ where: { id: req.authenticatedUserId } });
 
-      if (!user) {
-        return res.status(401).json({ message: "Access token is missing or invalid" });
-      }
+      const user = await prisma.user.findUnique({ where: { id: req.authenticatedUserId } });
+      if (!user) throw new UnauthorisedError();
 
       const account = await prisma.account.findUnique({ where: { accountNumber } });
-      if (!account) {
-        return res.status(404).json({ message: "Bank account not found" });
-      }
+      if (!account) throw new NotFoundError("Bank account not found");
 
-      if (account.userId !== req.authenticatedUserId) {
-        return res.status(403).json({ message: "Access forbidden" });
-      }
+      if (account.userId !== req.authenticatedUserId) throw new ForbiddenError();
 
       const updateData = { updatedTimestamp: new Date().toISOString() };
       if (name) updateData.name = name;
@@ -166,8 +150,7 @@ router.patch(
         updatedTimestamp: updatedAccount.updatedTimestamp
       });
     } catch (err) {
-      console.error("Error updating account:", err);
-      return res.status(500).json({ message: "An unexpected error occurred" });
+      next(err);
     }
   }
 );

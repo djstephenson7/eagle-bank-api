@@ -1,4 +1,5 @@
 import express from "express";
+import { errorHandler } from "./middleware";
 import accounts from "./routes/accounts.js";
 import auth from "./routes/auth.js";
 import users from "./routes/users.js";
@@ -12,6 +13,7 @@ app.use(express.json());
 app.use("/v1/accounts", accounts);
 app.use("/v1/auth", auth);
 app.use("/v1/users", users);
+app.use(errorHandler);
 
 connectToDatabase();
 
