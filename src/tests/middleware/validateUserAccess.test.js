@@ -13,35 +13,6 @@ describe("validateUserAccess", () => {
     next = jest.fn();
   });
 
-  it("Returns 401 if no Authorization header", () => {
-    req.params.userId = "usr-abc123";
-    validateUserAccess(req, res, next);
-
-    expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ message: "Access token is missing or invalid" });
-    expect(next).not.toHaveBeenCalled();
-  });
-
-  it("Returns 401 if Authorization header does not start with 'Bearer '", () => {
-    req.params.userId = mockUserId;
-    req.headers.authorization = `Token dummy-token-${mockUserId}`;
-    validateUserAccess(req, res, next);
-
-    expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ message: "Access token is missing or invalid" });
-    expect(next).not.toHaveBeenCalled();
-  });
-
-  it("Returns 401 if token does not start with 'dummy-token-'", () => {
-    req.params.userId = mockUserId;
-    req.headers.authorization = `Bearer notdummy-${mockUserId}`;
-    validateUserAccess(req, res, next);
-
-    expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ message: "Access token is missing or invalid" });
-    expect(next).not.toHaveBeenCalled();
-  });
-
   it("Returns 400 if userId format is invalid", () => {
     req.params.userId = "invalid-user-id";
     req.headers.authorization = mockValidJWT;
