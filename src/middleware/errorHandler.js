@@ -4,12 +4,13 @@ const logger = pino();
 
 // eslint-disable-next-line no-unused-vars
 export function errorHandler(err, req, res, next) {
-  console.error(err.stack);
-
   const message = err.status ? err.message : "An unexpected error occurred";
+  const stack = process.env.NODE_ENV !== "production" && err.stack;
   const status = err.status || 500;
 
-  logger.error({ message, status, stack: err.stack });
+  console.error(stack);
+
+  logger.error({ message, status, stack });
 
   res.status(status).json({ message });
 }

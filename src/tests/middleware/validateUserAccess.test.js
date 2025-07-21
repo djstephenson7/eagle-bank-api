@@ -1,4 +1,4 @@
-import { validateUserAccess } from "../../middleware";
+import { validateUserAccess } from "../../middleware/validateUserAccess";
 
 const mockUserId = "usr-abc123";
 

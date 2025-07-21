@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "../../consts";
-import { requireAuth } from "../../middleware";
+import { requireAuth } from "../../middleware/requireAuth";
 
 describe("requireAuth", () => {
   let req, res, next;

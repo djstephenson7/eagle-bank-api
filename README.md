@@ -51,6 +51,7 @@ A RESTful API for managing users, bank accounts, and transactions (transactions 
    ```
     API_KEY=<YOUR_API_KEY>
     DATABASE_URL=prisma+postgres://accelerate.prisma-data.net/?api_key=${API_KEY}
+    JWT_SECRET=<YOUR_JWT_SECRET>
    ```
 
    (Optional) Set `JWT_SECRET` if you upgrade to real JWTs.
