@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import express from "express";
-import { requireAuth, validateUserAccess } from "../middleware";
+import { requireAuth } from "../middleware/requireAuth.js";
+import { validateUserAccess } from "../middleware/validateUserAccess.js";
 import {
   createUserSchema,
   updateUserSchema,

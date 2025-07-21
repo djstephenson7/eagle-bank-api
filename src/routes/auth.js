@@ -1,6 +1,6 @@
 import express from "express";
 import jwt from "jsonwebtoken";
-import { JWT_SECRET } from "../consts";
+import { JWT_SECRET } from "../consts/index.js";
 import { prisma } from "../startup/connectToDatabase.js";
 import { UnauthorisedError, ValidationError } from "../utils/errors.js";
 

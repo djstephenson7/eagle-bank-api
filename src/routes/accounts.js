@@ -1,14 +1,15 @@
 import express from "express";
+
+import { prisma } from "../startup/connectToDatabase.js";
+import { ForbiddenError, NotFoundError, UnauthorisedError } from "../utils/errors.js";
+import { requireAuth } from "../middleware/requireAuth.js";
 import {
   accountNumberParamSchema,
   createAccountSchema,
-  requireAuth,
   updateAccountSchema,
   validateParams,
   validateSchema
-} from "../middleware";
-import { prisma } from "../startup/connectToDatabase.js";
-import { ForbiddenError, NotFoundError, UnauthorisedError } from "../utils/errors.js";
+} from "../middleware/validateAccountSchemas.js";
 
 const router = express.Router();
 

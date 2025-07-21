@@ -1,5 +1,5 @@
 import express from "express";
-import { errorHandler } from "./middleware";
+import { errorHandler } from "./middleware/errorHandler.js";
 import accounts from "./routes/accounts.js";
 import auth from "./routes/auth.js";
 import users from "./routes/users.js";
