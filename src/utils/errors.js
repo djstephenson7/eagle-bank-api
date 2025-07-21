@@ -1,9 +1,23 @@
+import pino from "pino";
+
+const logger = pino();
+
 class AppError extends Error {
   constructor(message, status = 500) {
     super(message);
     this.status = status;
     this.name = this.constructor.name;
     Error.captureStackTrace(this, this.constructor);
+
+    logger.error(
+      {
+        name: this.name,
+        message: this.message,
+        status: this.status,
+        stack: this.stack
+      },
+      `AppError created: ${this.name}`
+    );
   }
 }
 

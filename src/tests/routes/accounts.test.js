@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { mockLogger } from "pino";
 import { app } from "../../app.js";
 
 let request, server, prisma;
@@ -31,6 +32,7 @@ beforeEach(async () => {
   Object.values(prisma.user).forEach((fn) => fn.mockReset());
   request = (await import("supertest")).default;
   server = app.listen(0);
+  mockLogger.mockClear();
 });
 
 afterEach(() => {
@@ -169,13 +171,18 @@ describe("v1/accounts", () => {
     it("Returns 401 if user is not found", async () => {
       prisma.user.findUnique.mockResolvedValueOnce(null);
 
+      const message = "Access token is missing or invalid";
       const { body, statusCode } = await request(app)
         .post("/v1/accounts")
         .set("Authorization", `Bearer dummy-token-${mockUserId}`)
         .send({ name: "Test Account", accountType: "personal" });
 
       expect(statusCode).toBe(401);
-      expect(body).toEqual({ message: "Access token is missing or invalid" });
+      expect(body).toEqual({ message });
+      expect(mockLogger).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "UnauthorisedError", message }),
+        expect.any(String)
+      );
     });
 
     it("Returns 500 if account number already exists", async () => {
@@ -452,17 +459,22 @@ describe("v1/accounts", () => {
       prisma.user.findUnique.mockResolvedValueOnce(mockUser);
       prisma.account.findUnique.mockResolvedValueOnce(null);
 
+      const message = "Bank account not found";
       const { body, statusCode } = await request(app)
         .get("/v1/accounts/01123456")
         .set("Authorization", `Bearer dummy-token-${mockUserId}`);
 
       expect(statusCode).toBe(404);
-      expect(body).toEqual({ message: "Bank account not found" });
+      expect(body).toEqual({ message });
+      expect(mockLogger).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "NotFoundError", message }),
+        expect.any(String)
+      );
     });
 
     it("Returns 403 when user tries to access another user's account", async () => {
       const otherUserAccount = { ...mockAccount, userId: "usr-xyz789" };
-
+      const message = "Access forbidden";
       prisma.user.findUnique.mockResolvedValueOnce(mockUser);
       prisma.account.findUnique.mockResolvedValueOnce(otherUserAccount);
 
@@ -472,6 +484,10 @@ describe("v1/accounts", () => {
 
       expect(statusCode).toBe(403);
       expect(body).toEqual({ message: "Access forbidden" });
+      expect(mockLogger).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "ForbiddenError", message }),
+        expect.any(String)
+      );
     });
 
     it("Handles accounts with zero balance correctly", async () => {
@@ -709,6 +725,7 @@ describe("v1/accounts", () => {
     });
 
     it("Returns 401 if user is not found", async () => {
+      const message = "Access token is missing or invalid";
       prisma.user.findUnique.mockResolvedValueOnce(null);
 
       const { body, statusCode } = await request(app)
@@ -717,10 +734,15 @@ describe("v1/accounts", () => {
         .send({ name: "Updated Name" });
 
       expect(statusCode).toBe(401);
-      expect(body).toEqual({ message: "Access token is missing or invalid" });
+      expect(body).toEqual({ message });
+      expect(mockLogger).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "UnauthorisedError", message }),
+        expect.any(String)
+      );
     });
 
     it("Returns 404 when account is not found", async () => {
+      const message = "Bank account not found";
       prisma.user.findUnique.mockResolvedValueOnce(mockUser);
       prisma.account.findUnique.mockResolvedValueOnce(null);
 
@@ -730,12 +752,16 @@ describe("v1/accounts", () => {
         .send({ name: "Updated Name" });
 
       expect(statusCode).toBe(404);
-      expect(body).toEqual({ message: "Bank account not found" });
+      expect(body).toEqual({ message });
+      expect(mockLogger).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "NotFoundError", message }),
+        expect.any(String)
+      );
     });
 
     it("Returns 403 when user tries to update another user's account", async () => {
       const otherUserAccount = { ...mockAccount, userId: "usr-xyz789" };
-
+      const message = "Access forbidden";
       prisma.user.findUnique.mockResolvedValueOnce(mockUser);
       prisma.account.findUnique.mockResolvedValueOnce(otherUserAccount);
 
@@ -745,7 +771,11 @@ describe("v1/accounts", () => {
         .send({ name: "Updated Name" });
 
       expect(statusCode).toBe(403);
-      expect(body).toEqual({ message: "Access forbidden" });
+      expect(body).toEqual({ message });
+      expect(mockLogger).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "ForbiddenError", message }),
+        expect.any(String)
+      );
     });
 
     it("Returns 500 if Prisma throws an error during user lookup", async () => {

@@ -1,5 +1,6 @@
-import { app } from "../../app.js";
 import { PrismaClient } from "@prisma/client";
+import { mockLogger } from "pino";
+import { app } from "../../app.js";
 
 let request, server, prisma;
 
@@ -22,6 +23,7 @@ beforeEach(async () => {
   Object.values(prisma.user).forEach((fn) => fn.mockReset());
   request = (await import("supertest")).default;
   server = app.listen(0);
+  mockLogger.mockClear();
 });
 
 afterEach(() => {
@@ -59,6 +61,7 @@ describe("v1/users", () => {
       const { body, statusCode } = await request(app).post("/v1/users").send({
         email: "missingfields@example.com"
       });
+
       expect(statusCode).toBe(400);
       expect(body).toHaveProperty("message", "Validation failed");
       expect(body).toHaveProperty("details");
@@ -66,6 +69,7 @@ describe("v1/users", () => {
 
     it("Fails if email is duplicate", async () => {
       prisma.user.findUnique.mockResolvedValueOnce({ ...mockUser, email: "dup@example.com" });
+      const message = "A user with this email already exists.";
       const { body, statusCode } = await request(app).post("/v1/users").send({
         name: "Dup User",
         email: "dup@example.com",
@@ -77,8 +81,13 @@ describe("v1/users", () => {
         county: "Dupshire",
         postcode: "DUP 123"
       });
+
       expect(statusCode).toBe(400);
-      expect(body).toStrictEqual({ message: "A user with this email already exists." });
+      expect(body).toStrictEqual({ message });
+      expect(mockLogger).toHaveBeenCalledWith(
+        expect.objectContaining({ message }),
+        "AppError created: ValidationError"
+      );
     });
 
     it("Fails with invalid email format", async () => {
@@ -93,6 +102,7 @@ describe("v1/users", () => {
         county: "Testshire",
         postcode: "TST 123"
       });
+
       expect(statusCode).toBe(400);
       expect(body).toHaveProperty("message", "Validation failed");
     });
@@ -101,10 +111,13 @@ describe("v1/users", () => {
       prisma.user.findUnique.mockImplementationOnce(() => {
         throw new Error("DB error");
       });
+
+      const message = "An unexpected error occurred";
       const { body, statusCode } = await request(app).post("/v1/users").send(mockUser);
 
       expect(statusCode).toBe(500);
-      expect(body).toEqual({ message: "An unexpected error occurred" });
+      expect(body).toEqual({ message });
+      expect(mockLogger).toHaveBeenCalledWith(expect.objectContaining({ message }));
     });
   });
 
@@ -145,9 +158,13 @@ describe("v1/users", () => {
       const { body, statusCode } = await request(app)
         .get(`/v1/users/${mockUserId}`)
         .set("Authorization", `Bearer dummy-token-${mockUserId}`);
-
+      const message = "User not found";
       expect(statusCode).toBe(404);
-      expect(body).toEqual({ message: "User not found" });
+      expect(body).toEqual({ message });
+      expect(mockLogger).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "NotFoundError", message }),
+        expect.any(String)
+      );
     });
 
     it("Returns 403 if userId does not match authenticated user", async () => {
@@ -189,12 +206,15 @@ describe("v1/users", () => {
       prisma.user.findUnique.mockImplementationOnce(() => {
         throw new Error("DB error");
       });
+
+      const message = "An unexpected error occurred";
       const { body, statusCode } = await request(app)
         .get(`/v1/users/${user.id}`)
         .set("Authorization", `Bearer dummy-token-${user.id}`);
 
       expect(statusCode).toBe(500);
-      expect(body).toEqual({ message: "An unexpected error occurred" });
+      expect(body).toEqual({ message });
+      expect(mockLogger).toHaveBeenCalledWith(expect.objectContaining({ message }));
     });
   });
 
@@ -236,13 +256,18 @@ describe("v1/users", () => {
     });
 
     it("Returns 400 if no update fields are provided", async () => {
+      const message = "No update fields provided";
       const { body, statusCode } = await request(app)
         .patch(`/v1/users/${mockUserId}`)
         .set("Authorization", `Bearer dummy-token-${mockUserId}`)
         .send({});
 
       expect(statusCode).toBe(400);
-      expect(body).toEqual({ message: "No update fields provided" });
+      expect(body).toEqual({ message });
+      expect(mockLogger).toHaveBeenCalledWith(
+        expect.objectContaining({ message }),
+        "AppError created: ValidationError"
+      );
     });
 
     it("Updates user name successfully", async () => {
@@ -382,14 +407,17 @@ describe("v1/users", () => {
 
     it("Returns 404 if user is not found", async () => {
       prisma.user.update.mockResolvedValueOnce(null);
-
       const { body, statusCode } = await request(app)
         .patch(`/v1/users/${mockUserId}`)
         .set("Authorization", `Bearer dummy-token-${mockUserId}`)
         .send({ name: "Updated Name" });
-
+      const message = "User was not found";
       expect(statusCode).toBe(404);
-      expect(body).toEqual({ message: "User was not found" });
+      expect(body).toEqual({ message });
+      expect(mockLogger).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "NotFoundError", message }),
+        expect.any(String)
+      );
     });
 
     it("Returns 500 if Prisma throws an error", async () => {
@@ -397,20 +425,19 @@ describe("v1/users", () => {
         throw new Error("Database connection error");
       });
 
+      const message = "An unexpected error occurred";
       const { body, statusCode } = await request(app)
         .patch(`/v1/users/${mockUserId}`)
         .set("Authorization", `Bearer dummy-token-${mockUserId}`)
         .send({ name: "Updated Name" });
 
       expect(statusCode).toBe(500);
-      expect(body).toEqual({ message: "An unexpected error occurred" });
+      expect(body).toEqual({ message });
+      expect(mockLogger).toHaveBeenCalledWith(expect.objectContaining({ message }));
     });
 
     it("Handles partial address updates correctly", async () => {
-      const updatedData = {
-        addressLine1: "5 Partial St",
-        town: "Partialville"
-      };
+      const updatedData = { addressLine1: "5 Partial St", town: "Partialville" };
       const updatedUser = {
         ...user,
         addressLine1: updatedData.addressLine1,
@@ -468,13 +495,13 @@ describe("v1/users", () => {
 
     it("Returns 404 if user is not found", async () => {
       prisma.user.findUnique.mockResolvedValueOnce(null);
-
       const { body, statusCode } = await request(app)
         .delete(`/v1/users/${mockUserId}`)
         .set("Authorization", `Bearer dummy-token-${mockUserId}`);
-
+      const message = "User was not found";
       expect(statusCode).toBe(404);
-      expect(body).toEqual({ message: "User was not found" });
+      expect(body).toEqual({ message });
+      // No logger assertion here as DELETE does not use error class
     });
 
     it("Returns 409 if user has associated accounts", async () => {

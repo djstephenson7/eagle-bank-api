@@ -1,12 +1,12 @@
 import express from "express";
-import { requireAuth } from "../middleware";
 import {
   accountNumberParamSchema,
   createAccountSchema,
+  requireAuth,
   updateAccountSchema,
   validateParams,
   validateSchema
-} from "../middleware/validateAccountSchemas.js";
+} from "../middleware";
 import { prisma } from "../startup/connectToDatabase.js";
 import { ForbiddenError, NotFoundError, UnauthorisedError } from "../utils/errors.js";
 
