@@ -1,4 +1,6 @@
-import { requireAuth } from "../../middleware/requireAuth.js";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "../../consts";
+import { requireAuth } from "../../middleware";
 
 describe("requireAuth", () => {
   let req, res, next;
@@ -19,24 +21,40 @@ describe("requireAuth", () => {
   it("returns 401 if Authorization header does not start with 'Bearer '", () => {
     req.headers.authorization = "Token abc";
     requireAuth(req, res, next);
+
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({ message: "Missing or invalid token" });
     expect(next).not.toHaveBeenCalled();
   });
 
-  it("returns 403 if token does not start with 'dummy-token-'", () => {
-    req.headers.authorization = "Bearer notdummy-123";
+  it("Returns 403 if token is invalid (bad signature)", () => {
+    const badToken = jwt.sign({ userId: "abc123" }, "wrong-secret");
+    req.headers.authorization = `Bearer ${badToken}`;
     requireAuth(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({ message: "Invalid token" });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("Returns 403 if token is expired", () => {
+    const expiredToken = jwt.sign({ userId: "abc123" }, JWT_SECRET, { expiresIn: -1 });
+    req.headers.authorization = `Bearer ${expiredToken}`;
+    requireAuth(req, res, next);
+
     expect(res.status).toHaveBeenCalledWith(403);
     expect(res.json).toHaveBeenCalledWith({ message: "Invalid token" });
     expect(next).not.toHaveBeenCalled();
   });
 
   it("calls next if token is valid", () => {
-    req.headers.authorization = "Bearer dummy-token-abc123";
+    const validToken = jwt.sign({ userId: "abc123" }, JWT_SECRET, { expiresIn: "1h" });
+    req.headers.authorization = `Bearer ${validToken}`;
     requireAuth(req, res, next);
+
     expect(next).toHaveBeenCalled();
     expect(res.status).not.toHaveBeenCalled();
     expect(res.json).not.toHaveBeenCalled();
+    expect(req.authenticatedUserId).toBe("abc123");
   });
 });

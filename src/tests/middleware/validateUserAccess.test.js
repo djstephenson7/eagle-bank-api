@@ -1,7 +1,6 @@
-import { validateUserAccess } from "../../middleware/validateUserAccess.js";
+import { validateUserAccess } from "../../middleware";
 
 const mockUserId = "usr-abc123";
-const mockValidJWT = `Bearer dummy-token-${mockUserId}`;
 
 describe("validateUserAccess", () => {
   let req, res, next;
@@ -15,7 +14,7 @@ describe("validateUserAccess", () => {
 
   it("Returns 400 if userId format is invalid", () => {
     req.params.userId = "invalid-user-id";
-    req.headers.authorization = mockValidJWT;
+
     validateUserAccess(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(400);
@@ -26,7 +25,6 @@ describe("validateUserAccess", () => {
   });
 
   it("Returns 400 if userId is missing", () => {
-    req.headers.authorization = mockValidJWT;
     validateUserAccess(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(400);
@@ -38,7 +36,6 @@ describe("validateUserAccess", () => {
 
   it("Returns 400 if userId does not match usr- pattern", () => {
     req.params.userId = "user-abc123";
-    req.headers.authorization = "Bearer dummy-token-user-abc123";
     validateUserAccess(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(400);
@@ -72,9 +69,8 @@ describe("validateUserAccess", () => {
 
   it("Calls next if authentication and authorization are valid", () => {
     req.params.userId = mockUserId;
-    req.headers.authorization = "Bearer dummy-token-usr-abc123";
+    req.authenticatedUserId = mockUserId;
     validateUserAccess(req, res, next);
-
     expect(next).toHaveBeenCalled();
     expect(res.status).not.toHaveBeenCalled();
     expect(res.json).not.toHaveBeenCalled();
@@ -82,9 +78,8 @@ describe("validateUserAccess", () => {
 
   it("Calls next for valid userId with numbers only", () => {
     req.params.userId = "usr-123456";
-    req.headers.authorization = "Bearer dummy-token-usr-123456";
+    req.authenticatedUserId = "usr-123456";
     validateUserAccess(req, res, next);
-
     expect(next).toHaveBeenCalled();
     expect(res.status).not.toHaveBeenCalled();
     expect(res.json).not.toHaveBeenCalled();
@@ -92,9 +87,8 @@ describe("validateUserAccess", () => {
 
   it("Calls next for valid userId with mixed alphanumeric", () => {
     req.params.userId = "usr-abc123def";
-    req.headers.authorization = "Bearer dummy-token-usr-abc123def";
+    req.authenticatedUserId = "usr-abc123def";
     validateUserAccess(req, res, next);
-
     expect(next).toHaveBeenCalled();
     expect(res.status).not.toHaveBeenCalled();
     expect(res.json).not.toHaveBeenCalled();

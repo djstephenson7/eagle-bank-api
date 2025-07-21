@@ -1,8 +1,12 @@
 import { PrismaClient } from "@prisma/client";
+import jwt from "jsonwebtoken";
 import { mockLogger } from "pino";
 import { app } from "../../app.js";
+import { JWT_SECRET } from "../../consts";
 
 let request, server, prisma;
+
+const makeJwt = (userId) => jwt.sign({ userId }, JWT_SECRET, { expiresIn: "1h" });
 
 jest.mock("@prisma/client", () => {
   const user = { create: jest.fn(), findUnique: jest.fn(), update: jest.fn(), delete: jest.fn() };
@@ -147,7 +151,7 @@ describe("v1/users", () => {
     it("Returns 400 if userId format is invalid", async () => {
       const { body, statusCode } = await request(app)
         .get("/v1/users/invalid-id")
-        .set("Authorization", "Bearer dummy-token-abc123");
+        .set("Authorization", `Bearer ${makeJwt(mockUserId)}`);
 
       expect(statusCode).toBe(400);
       expect(body).toEqual({ message: "Invalid user ID format. Expected usr-<alphanumeric>" });
@@ -157,7 +161,7 @@ describe("v1/users", () => {
       prisma.user.findUnique.mockResolvedValueOnce(null);
       const { body, statusCode } = await request(app)
         .get(`/v1/users/${mockUserId}`)
-        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+        .set("Authorization", `Bearer ${makeJwt(mockUserId)}`);
       const message = "User not found";
       expect(statusCode).toBe(404);
       expect(body).toEqual({ message });
@@ -171,7 +175,7 @@ describe("v1/users", () => {
       prisma.user.findUnique.mockResolvedValueOnce(user);
       const { body, statusCode } = await request(app)
         .get(`/v1/users/${mockUserId}`)
-        .set("Authorization", "Bearer dummy-token-usr-otheruser");
+        .set("Authorization", `Bearer ${makeJwt("usr-otheruser")}`);
 
       expect(statusCode).toBe(403);
       expect(body).toEqual({ message: "Access to requested user is forbidden" });
@@ -181,7 +185,7 @@ describe("v1/users", () => {
       prisma.user.findUnique.mockResolvedValueOnce(user);
       const { body, statusCode } = await request(app)
         .get(`/v1/users/${mockUserId}`)
-        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+        .set("Authorization", `Bearer ${makeJwt(mockUserId)}`);
 
       expect(statusCode).toBe(200);
       expect(body).toEqual({
@@ -210,7 +214,7 @@ describe("v1/users", () => {
       const message = "An unexpected error occurred";
       const { body, statusCode } = await request(app)
         .get(`/v1/users/${user.id}`)
-        .set("Authorization", `Bearer dummy-token-${user.id}`);
+        .set("Authorization", `Bearer ${makeJwt(user.id)}`);
 
       expect(statusCode).toBe(500);
       expect(body).toEqual({ message });
@@ -240,7 +244,7 @@ describe("v1/users", () => {
     it("Returns 400 if userId format is invalid", async () => {
       const { body, statusCode } = await request(app)
         .patch("/v1/users/invalid-id")
-        .set("Authorization", "Bearer dummy-token-usr-abc123");
+        .set("Authorization", `Bearer ${makeJwt(mockUserId)}`);
 
       expect(statusCode).toBe(400);
       expect(body).toEqual({ message: "Invalid user ID format. Expected usr-<alphanumeric>" });
@@ -249,7 +253,7 @@ describe("v1/users", () => {
     it("Returns 403 if userId does not match authenticated user", async () => {
       const { body, statusCode } = await request(app)
         .patch(`/v1/users/${mockUserId}`)
-        .set("Authorization", "Bearer dummy-token-usr-otheruser");
+        .set("Authorization", `Bearer ${makeJwt("usr-otheruser")}`);
 
       expect(statusCode).toBe(403);
       expect(body).toEqual({ message: "Access to requested user is forbidden" });
@@ -259,7 +263,7 @@ describe("v1/users", () => {
       const message = "No update fields provided";
       const { body, statusCode } = await request(app)
         .patch(`/v1/users/${mockUserId}`)
-        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
         .send({});
 
       expect(statusCode).toBe(400);
@@ -277,7 +281,7 @@ describe("v1/users", () => {
 
       const { body, statusCode } = await request(app)
         .patch(`/v1/users/${mockUserId}`)
-        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
         .send({ name: "Updated Name" });
 
       expect(statusCode).toBe(200);
@@ -305,7 +309,7 @@ describe("v1/users", () => {
 
       const { body, statusCode } = await request(app)
         .patch(`/v1/users/${mockUserId}`)
-        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
         .send({ email: "updated@example.com" });
 
       expect(statusCode).toBe(200);
@@ -318,7 +322,7 @@ describe("v1/users", () => {
 
       const { body, statusCode } = await request(app)
         .patch(`/v1/users/${mockUserId}`)
-        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
         .send({ phoneNumber: "+9876543210" });
 
       expect(statusCode).toBe(200);
@@ -340,7 +344,7 @@ describe("v1/users", () => {
 
       const { body, statusCode } = await request(app)
         .patch(`/v1/users/${mockUserId}`)
-        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
         .send(updatedData);
 
       expect(statusCode).toBe(200);
@@ -369,7 +373,7 @@ describe("v1/users", () => {
 
       const { body, statusCode } = await request(app)
         .patch(`/v1/users/${mockUserId}`)
-        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
         .send(updatedData);
 
       expect(statusCode).toBe(200);
@@ -395,7 +399,7 @@ describe("v1/users", () => {
 
       const { body, statusCode } = await request(app)
         .patch(`/v1/users/${mockUserId}`)
-        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
         .send(updatedData);
 
       expect(statusCode).toBe(200);
@@ -409,7 +413,7 @@ describe("v1/users", () => {
       prisma.user.update.mockResolvedValueOnce(null);
       const { body, statusCode } = await request(app)
         .patch(`/v1/users/${mockUserId}`)
-        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
         .send({ name: "Updated Name" });
       const message = "User was not found";
       expect(statusCode).toBe(404);
@@ -428,7 +432,7 @@ describe("v1/users", () => {
       const message = "An unexpected error occurred";
       const { body, statusCode } = await request(app)
         .patch(`/v1/users/${mockUserId}`)
-        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
         .send({ name: "Updated Name" });
 
       expect(statusCode).toBe(500);
@@ -448,7 +452,7 @@ describe("v1/users", () => {
 
       const { body, statusCode } = await request(app)
         .patch(`/v1/users/${mockUserId}`)
-        .set("Authorization", `Bearer dummy-token-${mockUserId}`)
+        .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
         .send(updatedData);
 
       expect(statusCode).toBe(200);
@@ -476,32 +480,29 @@ describe("v1/users", () => {
     });
 
     it("Returns 400 if userId format is invalid", async () => {
-      const { body, statusCode } = await request(app)
+      await request(app)
         .delete("/v1/users/invalid-id")
-        .set("Authorization", "Bearer dummy-token-usr-abc123");
-
-      expect(statusCode).toBe(400);
-      expect(body).toEqual({ message: "Invalid user ID format. Expected usr-<alphanumeric>" });
+        .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
+        .expect(400)
+        .expect({ message: "Invalid user ID format. Expected usr-<alphanumeric>" });
     });
 
     it("Returns 403 if userId does not match authenticated user", async () => {
-      const { body, statusCode } = await request(app)
+      await request(app)
         .delete(`/v1/users/${mockUserId}`)
-        .set("Authorization", "Bearer dummy-token-usr-otheruser");
-
-      expect(statusCode).toBe(403);
-      expect(body).toEqual({ message: "Access to requested user is forbidden" });
+        .set("Authorization", `Bearer ${makeJwt("usr-otheruser")}`)
+        .expect(403)
+        .expect({ message: "Access to requested user is forbidden" });
     });
 
     it("Returns 404 if user is not found", async () => {
       prisma.user.findUnique.mockResolvedValueOnce(null);
       const { body, statusCode } = await request(app)
         .delete(`/v1/users/${mockUserId}`)
-        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+        .set("Authorization", `Bearer ${makeJwt(mockUserId)}`);
       const message = "User was not found";
       expect(statusCode).toBe(404);
       expect(body).toEqual({ message });
-      // No logger assertion here as DELETE does not use error class
     });
 
     it("Returns 409 if user has associated accounts", async () => {
@@ -523,7 +524,7 @@ describe("v1/users", () => {
 
       const { body, statusCode } = await request(app)
         .delete(`/v1/users/${mockUserId}`)
-        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+        .set("Authorization", `Bearer ${makeJwt(mockUserId)}`);
 
       expect(statusCode).toBe(409);
       expect(body).toEqual({
@@ -538,7 +539,7 @@ describe("v1/users", () => {
 
       const { statusCode } = await request(app)
         .delete(`/v1/users/${mockUserId}`)
-        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+        .set("Authorization", `Bearer ${makeJwt(mockUserId)}`);
 
       expect(statusCode).toBe(204);
       expect(prisma.user.delete).toHaveBeenCalledWith({
@@ -553,7 +554,7 @@ describe("v1/users", () => {
 
       const { body, statusCode } = await request(app)
         .delete(`/v1/users/${mockUserId}`)
-        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+        .set("Authorization", `Bearer ${makeJwt(mockUserId)}`);
 
       expect(statusCode).toBe(500);
       expect(body).toEqual({ message: "An unexpected error occurred" });
@@ -568,7 +569,7 @@ describe("v1/users", () => {
 
       const { body, statusCode } = await request(app)
         .delete(`/v1/users/${mockUserId}`)
-        .set("Authorization", `Bearer dummy-token-${mockUserId}`);
+        .set("Authorization", `Bearer ${makeJwt(mockUserId)}`);
 
       expect(statusCode).toBe(500);
       expect(body).toEqual({ message: "An unexpected error occurred" });

@@ -1,3 +1,6 @@
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "../consts";
+
 export const requireAuth = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
@@ -7,14 +10,11 @@ export const requireAuth = (req, res, next) => {
 
   const token = authHeader.split(" ")[1];
 
-  // For POC: just check the token follows the dummy format
-  if (!token.startsWith("dummy-token-")) {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.authenticatedUserId = decoded.userId;
+    next();
+  } catch {
     return res.status(403).json({ message: "Invalid token" });
   }
-
-  // Extract the user ID from the token and make it available to route handlers
-  const authenticatedUserId = token.replace("dummy-token-", "");
-  req.authenticatedUserId = authenticatedUserId;
-
-  next();
 };

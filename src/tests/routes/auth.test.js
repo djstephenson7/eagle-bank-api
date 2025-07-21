@@ -55,12 +55,12 @@ describe("POST /v1/auth", () => {
     expect(res.body).toStrictEqual({ message: "User not found" });
   });
 
-  it("Returns dummy token for valid user", async () => {
+  it("Returns token for valid user", async () => {
     prisma.user.findUnique.mockResolvedValue(user);
     const res = await request(app).post("/v1/auth").send({ email: user.email });
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toHaveProperty("token");
-    expect(res.body.token).toBe(`dummy-token-${user.id}`);
+    expect(res.body.token).toEqual(expect.stringMatching(/^ey/));
   });
 });

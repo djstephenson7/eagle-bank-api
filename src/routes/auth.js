@@ -1,29 +1,25 @@
 import express from "express";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "../consts";
 import { prisma } from "../startup/connectToDatabase.js";
-import { UnauthorisedError } from "../utils/errors.js";
+import { UnauthorisedError, ValidationError } from "../utils/errors.js";
 
 const router = express.Router();
-
-// Ordinarily, we'd use the username/email & password, store the hashed password in the DB and set JWT in the header
-// with an expiry date, but for the sake of simplicity and brevity, we'll return a dummy value for now
 
 router.post("/", async (req, res, next) => {
   const { email } = req.body;
 
   try {
-    if (!email) {
-      return res.status(400).json({ message: "Email is required" });
-    }
+    if (!email) throw new ValidationError("Email is required");
 
     const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) throw new UnauthorisedError("User not found");
 
-    // Return a dummy token
-    const dummyToken = `dummy-token-${user.id}`;
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "1h" });
 
-    res.set(`Authorization`, `Bearer ${dummyToken}`);
-    res.json({ token: dummyToken });
+    res.set("Authorization", `Bearer ${token}`);
+    res.json({ token });
   } catch (err) {
     next(err);
   }
