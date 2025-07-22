@@ -1,7 +1,5 @@
 import express from "express";
 
-import { prisma } from "../startup/connectToDatabase.js";
-import { ForbiddenError, NotFoundError, UnauthorisedError } from "../utils/errors.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import {
   accountNumberParamSchema,
@@ -10,6 +8,8 @@ import {
   validateParams,
   validateSchema
 } from "../middleware/validateAccountSchemas.js";
+import { prisma } from "../startup/connectToDatabase.js";
+import { ForbiddenError, NotFoundError, UnauthorisedError } from "../utils/errors.js";
 
 const router = express.Router();
 

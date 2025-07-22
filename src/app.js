@@ -5,6 +5,7 @@ import openApi from "./docs/openApi.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import accounts from "./routes/accounts.js";
 import auth from "./routes/auth.js";
+import transactions from "./routes/transactions.js";
 import users from "./routes/users.js";
 import { connectToDatabase } from "./startup/connectToDatabase.js";
 
@@ -21,17 +22,22 @@ const port = 3000;
 
 app.use(express.json());
 app.use(helmet());
-app.use(limiter);
+
+// Only apply rate limiting if not in test environment
+if (process.env.NODE_ENV !== "test") {
+  app.use(limiter);
+}
 
 app.use("/v1/accounts", accounts);
+app.use("/v1/accounts", transactions);
 app.use("/v1/api-docs", openApi);
 app.use("/v1/auth", auth);
 app.use("/v1/users", users);
 app.use(errorHandler);
 
-connectToDatabase();
-
+// Only connect to database if not in test environment
 if (process.env.NODE_ENV !== "test") {
+  connectToDatabase();
   app.listen(port, () => console.log(`Example app listening on port ${port}...`));
 }
 

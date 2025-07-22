@@ -15,12 +15,15 @@ jest.mock("@prisma/client", () => {
     update: jest.fn()
   };
   const user = { findUnique: jest.fn() };
+  const transaction = { create: jest.fn() };
   const mockPrisma = {
     account,
     user,
+    transaction,
     $extends: jest.fn().mockReturnThis(),
     $connect: jest.fn().mockResolvedValue(undefined),
-    $disconnect: jest.fn().mockResolvedValue(undefined)
+    $disconnect: jest.fn().mockResolvedValue(undefined),
+    $transaction: jest.fn()
   };
   return {
     PrismaClient: jest.fn(() => mockPrisma)
@@ -34,14 +37,24 @@ beforeEach(async () => {
   prisma = new PrismaClient();
   Object.values(prisma.account).forEach((fn) => fn.mockReset());
   Object.values(prisma.user).forEach((fn) => fn.mockReset());
+  Object.values(prisma.transaction).forEach((fn) => fn.mockReset());
+  prisma.$transaction.mockReset();
   request = (await import("supertest")).default;
   server = app.listen(0);
   mockLogger.mockClear();
 });
 
-afterEach(() => {
+afterEach(async () => {
   jest.useRealTimers();
-  if (server) server.close();
+  if (server) {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+afterAll(async () => {
+  if (server) {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });
 
 const mockUserId = "usr-abc123";
