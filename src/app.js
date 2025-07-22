@@ -23,8 +23,8 @@ app.use(express.json());
 app.use(helmet());
 app.use(limiter);
 
-app.use("/v1/api-docs", openApi);
 app.use("/v1/accounts", accounts);
+app.use("/v1/api-docs", openApi);
 app.use("/v1/auth", auth);
 app.use("/v1/users", users);
 app.use(errorHandler);
