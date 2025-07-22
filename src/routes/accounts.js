@@ -41,7 +41,7 @@ router.post("/", [requireAuth, validateSchema(createAccountSchema)], async (req,
       sortCode: account.sortCode,
       name: account.name,
       accountType: account.accountType,
-      balance: account.balance / 100,
+      balance: account.balance,
       currency: account.currency,
       createdTimestamp: account.createdTimestamp,
       updatedTimestamp: account.updatedTimestamp
@@ -69,7 +69,7 @@ router.get("/", [requireAuth], async (req, res, next) => {
         sortCode: account.sortCode,
         name: account.name,
         accountType: account.accountType,
-        balance: account.balance / 100,
+        balance: account.balance,
         currency: account.currency,
         createdTimestamp: account.createdTimestamp,
         updatedTimestamp: account.updatedTimestamp
@@ -104,7 +104,7 @@ router.get(
         sortCode: account.sortCode,
         name: account.name,
         accountType: account.accountType,
-        balance: account.balance / 100,
+        balance: account.balance,
         currency: account.currency,
         createdTimestamp: account.createdTimestamp,
         updatedTimestamp: account.updatedTimestamp
@@ -145,7 +145,7 @@ router.patch(
         sortCode: updatedAccount.sortCode,
         name: updatedAccount.name,
         accountType: updatedAccount.accountType,
-        balance: updatedAccount.balance / 100,
+        balance: updatedAccount.balance,
         currency: updatedAccount.currency,
         createdTimestamp: updatedAccount.createdTimestamp,
         updatedTimestamp: updatedAccount.updatedTimestamp

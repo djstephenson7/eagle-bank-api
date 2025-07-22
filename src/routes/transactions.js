@@ -21,13 +21,12 @@ router.post(
       const { amount, currency, type, reference } = req.body;
       const authenticatedUserId = req.authenticatedUserId;
 
-      if (amount < 0.01) {
-        return res.status(400).json({ message: "Amount must be at least £0.01" });
+      if (amount < 1) {
+        return res.status(400).json({ message: "Amount must be at least 1 penny" });
       }
 
-      // Round amount to 2 decimal places to avoid floating point precision issues
-      const roundedAmount = Math.round(amount * 100) / 100;
-      const amountInPence = Math.round(roundedAmount * 100);
+      // Amount is already in pence, no conversion needed
+      const amountInPence = amount;
 
       const account = await prisma.account.findUnique({ where: { accountNumber } });
       if (!account) {
@@ -73,7 +72,7 @@ router.post(
 
       return res.status(201).json({
         id: transaction.id,
-        amount: roundedAmount,
+        amount: amountInPence,
         currency: transaction.currency,
         type: transaction.type,
         reference: transaction.reference,

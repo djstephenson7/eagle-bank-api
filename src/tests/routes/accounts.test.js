@@ -241,7 +241,7 @@ describe("v1/accounts", () => {
               sortCode: "10-10-10",
               name: "First Account",
               accountType: "personal",
-              balance: 10,
+              balance: 1000,
               currency: "GBP",
               createdTimestamp: mockAccount.createdTimestamp,
               updatedTimestamp: mockAccount.updatedTimestamp
@@ -251,7 +251,7 @@ describe("v1/accounts", () => {
               sortCode: "10-10-10",
               name: "Second Account",
               accountType: "personal",
-              balance: 25,
+              balance: 2500,
               currency: "GBP",
               createdTimestamp: mockAccount.createdTimestamp,
               updatedTimestamp: mockAccount.updatedTimestamp
@@ -336,8 +336,8 @@ describe("v1/accounts", () => {
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
         .expect(200);
 
-      expect(body.accounts[0].balance).toBe(50);
-      expect(body.accounts[1].balance).toBe(12.5);
+      expect(body.accounts[0].balance).toBe(5000);
+      expect(body.accounts[1].balance).toBe(1250);
     });
   });
 
@@ -357,7 +357,7 @@ describe("v1/accounts", () => {
           sortCode: "10-10-10",
           name: "Test Account",
           accountType: "personal",
-          balance: 15,
+          balance: 1500,
           currency: "GBP",
           createdTimestamp: mockAccount.createdTimestamp,
           updatedTimestamp: mockAccount.updatedTimestamp
@@ -509,7 +509,7 @@ describe("v1/accounts", () => {
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
         .expect(200);
 
-      expect(body.balance).toBe(12.5);
+      expect(body.balance).toBe(1250);
     });
 
     it("Returns 500 if Prisma throws an error during user lookup", async () => {

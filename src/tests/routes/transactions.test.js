@@ -73,7 +73,7 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
   describe("POST /", () => {
     const mockTransaction = {
       id: "tan-abc123def456",
-      amount: 10_00,
+      amount: 1000,
       currency: "GBP",
       type: "deposit",
       reference: "Test transaction",
@@ -95,7 +95,7 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
         .send({
-          amount: 10.0,
+          amount: 1000,
           currency: "GBP",
           type: "deposit",
           reference: "Test transaction"
@@ -103,7 +103,7 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
         .expect(201)
         .expect({
           id: mockTransaction.id,
-          amount: 10.0,
+          amount: 1000,
           currency: mockTransaction.currency,
           type: mockTransaction.type,
           reference: mockTransaction.reference,
@@ -142,7 +142,7 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
         .send({
-          amount: 10.0,
+          amount: 1000,
           currency: "GBP",
           type: "withdrawal",
           reference: "Test withdrawal"
@@ -150,7 +150,7 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
         .expect(201)
         .expect({
           id: mockTransaction.id,
-          amount: 10.0,
+          amount: 1000,
           currency: mockTransaction.currency,
           type: mockTransaction.type,
           reference: mockTransaction.reference,
@@ -170,7 +170,7 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
         .send({
-          amount: 10.0,
+          amount: 1000,
           currency: "GBP",
           type: "deposit"
         })
@@ -185,7 +185,7 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
         .send({
-          amount: 10.0,
+          amount: 1000,
           currency: "GBP",
           type: "deposit",
           reference: "Test transaction"
@@ -202,7 +202,7 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
         .send({
-          amount: 10.0,
+          amount: 1000,
           currency: "GBP",
           type: "deposit",
           reference: "Test transaction"
@@ -219,7 +219,7 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
         .send({
-          amount: 10.0,
+          amount: 1000,
           currency: "GBP",
           type: "withdrawal",
           reference: "Test withdrawal"
@@ -240,7 +240,7 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
         .send({
-          amount: 10.0,
+          amount: 1000,
           currency: "GBP",
           type: "withdrawal",
           reference: "Test withdrawal"
@@ -249,7 +249,7 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
       expect(response.status).toBe(201);
       expect(response.body).toEqual({
         id: mockTransaction.id,
-        amount: 10.0,
+        amount: 1000,
         currency: mockTransaction.currency,
         type: mockTransaction.type,
         reference: mockTransaction.reference,
@@ -270,7 +270,7 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
         .send({
-          amount: 10.0,
+          amount: 1000,
           currency: "GBP",
           type: "withdrawal",
           reference: "Test withdrawal"
@@ -288,13 +288,13 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
       await request(app)
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
-        .send({ amount: 10.0 })
+        .send({ amount: 1000 })
         .expect(400);
 
       await request(app)
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
-        .send({ amount: 10.0, currency: "GBP" })
+        .send({ amount: 1000, currency: "GBP" })
         .expect(400);
     });
 
@@ -304,7 +304,7 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
       await request(app)
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
-        .send({ amount: -10.0, currency: "GBP", type: "deposit" })
+        .send({ amount: -1000, currency: "GBP", type: "deposit" })
         .expect(400);
 
       await request(app)
@@ -323,7 +323,7 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
       await request(app)
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
-        .send({ amount: 0.001, currency: "GBP", type: "deposit" })
+        .send({ amount: 0, currency: "GBP", type: "deposit" })
         .expect(400);
 
       await request(app)
@@ -332,12 +332,12 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
         .send({ amount: 0.009, currency: "GBP", type: "deposit" })
         .expect(400);
 
-      // Test that £0.01 is accepted (validation passes, but account doesn't exist)
+      // Test that 1 penny is accepted (validation passes, but account doesn't exist)
       prisma.account.findUnique.mockResolvedValue(null);
       await request(app)
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
-        .send({ amount: 0.01, currency: "GBP", type: "deposit" })
+        .send({ amount: 1, currency: "GBP", type: "deposit" })
         .expect(404); // Validation passes, but account doesn't exist
     });
 
@@ -345,13 +345,13 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
       await request(app)
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
-        .send({ amount: 10.0, currency: "USD", type: "deposit" })
+        .send({ amount: 1000, currency: "USD", type: "deposit" })
         .expect(400);
 
       await request(app)
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
-        .send({ amount: 10.0, currency: "EUR", type: "deposit" })
+        .send({ amount: 1000, currency: "EUR", type: "deposit" })
         .expect(400);
     });
 
@@ -359,13 +359,13 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
       await request(app)
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
-        .send({ amount: 10.0, currency: "GBP", type: "transfer" })
+        .send({ amount: 1000, currency: "GBP", type: "transfer" })
         .expect(400);
 
       await request(app)
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
-        .send({ amount: 10.0, currency: "GBP", type: "payment" })
+        .send({ amount: 1000, currency: "GBP", type: "payment" })
         .expect(400);
     });
 
@@ -387,7 +387,7 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
         const { body } = await request(app)
           .post(`/v1/accounts/${accountNumber}/transactions`)
           .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
-          .send({ amount: 10.0, currency: "GBP", type: "deposit" })
+          .send({ amount: 1000, currency: "GBP", type: "deposit" })
           .expect(400);
 
         expect(body).toHaveProperty("message", "Invalid account number format");
@@ -401,7 +401,7 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
     it("Returns 401 when no authorization header is provided", async () => {
       await request(app)
         .post("/v1/accounts/01123456/transactions")
-        .send({ amount: 10.0, currency: "GBP", type: "deposit" })
+        .send({ amount: 1000, currency: "GBP", type: "deposit" })
         .expect(401)
         .expect({ message: "Missing or invalid token" });
     });
@@ -410,7 +410,7 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
       await request(app)
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", "Bearer invalid-token")
-        .send({ amount: 10.0, currency: "GBP", type: "deposit" })
+        .send({ amount: 1000, currency: "GBP", type: "deposit" })
         .expect(403)
         .expect({ message: "Invalid token" });
     });
@@ -421,7 +421,7 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
       await request(app)
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", `Bearer ${expiredToken}`)
-        .send({ amount: 10.0, currency: "GBP", type: "deposit" })
+        .send({ amount: 1000, currency: "GBP", type: "deposit" })
         .expect(403)
         .expect({ message: "Invalid token" });
     });
@@ -469,7 +469,7 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
       await request(app)
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
-        .send({ amount: 10.0, currency: "GBP", type: "deposit", reference: "Test transaction" })
+        .send({ amount: 1000, currency: "GBP", type: "deposit", reference: "Test transaction" })
         .expect(500);
     });
 
@@ -481,7 +481,7 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
       await request(app)
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
-        .send({ amount: 10.0, currency: "GBP", type: "deposit", reference: "Test transaction" })
+        .send({ amount: 1000, currency: "GBP", type: "deposit", reference: "Test transaction" })
         .expect(500);
     });
 
@@ -495,7 +495,7 @@ describe("/v1/accounts/:accountNumber/transactions", () => {
       await request(app)
         .post("/v1/accounts/01123456/transactions")
         .set("Authorization", `Bearer ${makeJwt(mockUserId)}`)
-        .send({ amount: 10.0, currency: "GBP", type: "deposit", reference: "Test transaction" })
+        .send({ amount: 1000, currency: "GBP", type: "deposit", reference: "Test transaction" })
         .expect(201)
         .expect((res) => {
           expect(res.body.id).toMatch(/^tan-[a-f0-9]{16}$/);
